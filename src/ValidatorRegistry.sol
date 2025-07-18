@@ -281,17 +281,19 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         }
 
         // Sort validators by stake amount (descending)
-        for (uint256 i = 0; i < eligibleCount - 1; i++) {
-            for (uint256 j = 0; j < eligibleCount - i - 1; j++) {
-                if (stakes[j] < stakes[j + 1]) {
-                    // Swap stakes
-                    uint256 tempStake = stakes[j];
-                    stakes[j] = stakes[j + 1];
-                    stakes[j + 1] = tempStake;
-                    // Swap addresses
-                    address tempAddr = eligibleValidators[j];
-                    eligibleValidators[j] = eligibleValidators[j + 1];
-                    eligibleValidators[j + 1] = tempAddr;
+        if (eligibleCount > 1) {
+            for (uint256 i = 0; i < eligibleCount - 1; i++) {
+                for (uint256 j = 0; j < eligibleCount - i - 1; j++) {
+                    if (stakes[j] < stakes[j + 1]) {
+                        // Swap stakes
+                        uint256 tempStake = stakes[j];
+                        stakes[j] = stakes[j + 1];
+                        stakes[j + 1] = tempStake;
+                        // Swap addresses
+                        address tempAddr = eligibleValidators[j];
+                        eligibleValidators[j] = eligibleValidators[j + 1];
+                        eligibleValidators[j + 1] = tempAddr;
+                    }
                 }
             }
         }

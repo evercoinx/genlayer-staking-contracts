@@ -116,11 +116,11 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
         uint256 proposalId,
         uint256 challengeStake
     ) external onlyActiveValidator nonReentrant returns (uint256 disputeId) {
-        if (challengeStake < MINIMUM_CHALLENGE_STAKE) {
-            revert InsufficientChallengeStake();
-        }
         if (challengeStake == 0) {
             revert ZeroChallengeStake();
+        }
+        if (challengeStake < MINIMUM_CHALLENGE_STAKE) {
+            revert InsufficientChallengeStake();
         }
 
         // Verify proposal can be disputed
@@ -152,9 +152,6 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
         });
 
         proposalToDisputes[proposalId].push(disputeId);
-
-        // Challenge the proposal in ProposalManager
-        proposalManager.challengeProposal(proposalId);
 
         emit DisputeCreated(disputeId, proposalId, msg.sender, challengeStake);
 
@@ -238,19 +235,20 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
             IValidatorRegistry.ValidatorInfo memory proposerInfo = validatorRegistry.getValidatorInfo(dispute.proposer);
             
             // Slash proposer in validator registry
+            uint256 actualSlashAmount = 0;
             if (proposerInfo.stakedAmount > 0) {
-                uint256 actualSlashAmount = slashAmount > proposerInfo.stakedAmount ? proposerInfo.stakedAmount : slashAmount;
+                actualSlashAmount = slashAmount > proposerInfo.stakedAmount ? proposerInfo.stakedAmount : slashAmount;
                 validatorRegistry.slashValidator(dispute.proposer, actualSlashAmount, "Lost dispute");
+                dispute.slashAmount = actualSlashAmount;
             }
 
-            // Return challenge stake plus slash reward to challenger
-            uint256 totalReward = dispute.challengeStake + slashAmount;
-            gltToken.safeTransfer(dispute.challenger, totalReward);
+            // Return challenge stake to challenger
+            // Note: The slashed amount stays in ValidatorRegistry, so we only return the challenge stake
+            gltToken.safeTransfer(dispute.challenger, dispute.challengeStake);
             
-            emit RewardDistributed(disputeId, dispute.challenger, totalReward);
+            emit RewardDistributed(disputeId, dispute.challenger, dispute.challengeStake);
             
-            // Reject the proposal
-            proposalManager.rejectProposal(dispute.proposalId, "Challenge successful");
+            // Note: The proposal should be rejected by ProposalManager separately
         } else {
             // Proposer wins - slash challenger stake and reward proposer
             uint256 rewardAmount = dispute.challengeStake - slashAmount;

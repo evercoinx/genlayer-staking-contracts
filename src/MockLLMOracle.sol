@@ -26,9 +26,9 @@ contract MockLLMOracle is IMockLLMOracle {
     function validateProposal(uint256 proposalId, bytes32 proposalHash) external returns (bool isValid) {
         isValid = _isValidHash(proposalHash);
         totalValidations++;
-        
+
         emit ValidationPerformed(proposalId, proposalHash, isValid);
-        
+
         return isValid;
     }
 
@@ -38,7 +38,10 @@ contract MockLLMOracle is IMockLLMOracle {
     function batchValidateProposals(
         uint256[] calldata proposalIds,
         bytes32[] calldata proposalHashes
-    ) external returns (bool[] memory results) {
+    )
+        external
+        returns (bool[] memory results)
+    {
         if (proposalIds.length != proposalHashes.length) {
             revert ArrayLengthMismatch();
         }
@@ -50,14 +53,14 @@ contract MockLLMOracle is IMockLLMOracle {
         }
 
         results = new bool[](proposalIds.length);
-        
+
         for (uint256 i = 0; i < proposalIds.length; i++) {
             results[i] = _isValidHash(proposalHashes[i]);
             totalValidations++;
         }
 
         emit BatchValidationPerformed(proposalIds, results);
-        
+
         return results;
     }
 
