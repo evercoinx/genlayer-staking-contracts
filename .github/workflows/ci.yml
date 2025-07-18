@@ -1,0 +1,76 @@
+name: CI
+on:
+  push:
+
+env:
+  FOUNDRY_PROFILE: ci
+  ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Create .env file
+        run: cp .env.example .env
+
+      - name: Install dependencies
+        run: forge install
+
+
+      - name: Clean up
+        run: make cleanup-localhost
+
+      - name: Compile contracts
+        run: make compile
+
+      - name: Run tests
+        run: make test
+
+      - name: Start Anvil
+        run: |
+          nohup anvil --silent &
+          for i in {1..15}; do
+            if nc -z 127.0.0.1 8545; then
+              echo "Anvil is up"
+              break
+            fi
+            echo "Waiting for Anvil to start..."
+            sleep 1
+          done
+
+      - name: Deploy contracts to Anvil
+        run: make deploy-localhost
+
+      - name: Generate ABIs
+        run: |
+          mkdir -p abis
+          for contract in SmartAccount SmartAccountFactory; do
+            find out -name "$contract.json" | while read file; do
+              dir_name=$(dirname "$file" | sed 's|^out/||')
+              mkdir -p "abis/$dir_name"
+              jq '.abi' "$file" > "abis/$dir_name/${contract}.json"
+            done
+          done
+
+      - name: Upload ABIs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-abis
+          path: abis/
+          retention-days: 7
+
+      # - name: Run slither
+      #   uses: crytic/slither-action@v0.4.1
+      #   with:
+      #     ignore-compile: true
