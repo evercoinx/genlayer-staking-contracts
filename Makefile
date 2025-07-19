@@ -3,7 +3,7 @@ ifneq (,$(wildcard .env))
     export
 endif
 
-.PHONY: fmt compile test gas deploy-smart-account deploy-smart-account-factory deploy-all deploy-localhost deploy-base-sepolia deploy-base
+.PHONY: fmt compile test gas deploy-genlayer deploy-all deploy-localhost deploy-base-sepolia deploy-base
 
 DEPLOY_PARAMS :=
 ifeq ($(LOCAL_DEPLOY),1)
@@ -18,9 +18,9 @@ all:
 	@echo "  compile                      - Compile contracts"
 	@echo "  test                         - Run tests"
 	@echo "  gas                          - Generate gas report"
-	@echo "  deploy-localhost             - Deploy all contracts to localhost"
-	@echo "  deploy-base-sepolia          - Deploy all contracts to base sepolia"
-	@echo "  deploy-base                  - Deploy all contracts to base"
+	@echo "  deploy-localhost             - Deploy GenLayer contracts to localhost"
+	@echo "  deploy-base-sepolia          - Deploy GenLayer contracts to base sepolia"
+	@echo "  deploy-base                  - Deploy GenLayer contracts to base"
 
 fmt:
 	@forge fmt
@@ -46,19 +46,11 @@ deploy-base:
 	@echo "Deploying to base network"
 	@make deploy-all RPC_URL=https://base.g.alchemy.com/v2/$(ALCHEMY_API_KEY)
 
-deploy-smart-account:
-	@forge script script/SmartAccount.s.sol:SmartAccountScript \
+deploy-genlayer:
+	@forge script script/Deploy.s.sol:Deploy \
 		--rpc-url $(RPC_URL) \
 		--broadcast \
 		$(DEPLOY_PARAMS)
-
-deploy-smart-account-factory:
-	@forge script script/SmartAccountFactory.s.sol:SmartAccountFactoryScript \
-		--rpc-url $(RPC_URL) \
-		--broadcast \
-		$(DEPLOY_PARAMS)
-
-deploy-all: deploy-smart-account deploy-smart-account-factory
 
 cleanup-localhost:
 	@echo "Cleaning up localhost"

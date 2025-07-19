@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+import { IValidator } from "./IValidator.sol";
+
 /**
  * @title IValidatorRegistry
  * @dev Interface for the ValidatorRegistry contract that manages validator registration,
- * staking, and selection for the GenLayer consensus system.
+ * staking, and selection for the GenLayer consensus system using beacon proxy pattern.
  */
 interface IValidatorRegistry {
     /**
@@ -72,6 +74,14 @@ interface IValidatorRegistry {
      * @param blockNumber The block number at which the update occurred.
      */
     event ActiveValidatorSetUpdated(address[] validators, uint256 blockNumber);
+
+    /**
+     * @dev Emitted when a new validator proxy is created.
+     * @param validator The validator address.
+     * @param proxy The beacon proxy contract address.
+     * @param stakedAmount The initial stake amount.
+     */
+    event ValidatorProxyCreated(address indexed validator, address indexed proxy, uint256 stakedAmount);
 
     /**
      * @dev Error thrown when attempting to register with insufficient stake.
@@ -203,4 +213,37 @@ interface IValidatorRegistry {
      * @return maxValidators The maximum number of validators.
      */
     function getMaxValidators() external view returns (uint256 maxValidators);
+
+    /**
+     * @dev Registers a new validator with metadata using beacon proxy pattern.
+     * @param stakeAmount The amount of GLT tokens to stake.
+     * @param metadata The validator metadata.
+     */
+    function registerValidatorWithMetadata(uint256 stakeAmount, string memory metadata) external;
+
+    /**
+     * @dev Returns the validator info with metadata.
+     * @param validator The validator address.
+     * @return info The validator info including metadata.
+     */
+    function getValidatorInfoWithMetadata(address validator) external view returns (IValidator.ValidatorInfo memory info);
+
+    /**
+     * @dev Returns the beacon proxy address for a validator.
+     * @param validator The validator address.
+     * @return proxy The beacon proxy address.
+     */
+    function getValidatorProxy(address validator) external view returns (address proxy);
+
+    /**
+     * @dev Returns the validator beacon address.
+     * @return The beacon address.
+     */
+    function getValidatorBeacon() external view returns (address);
+
+    /**
+     * @dev Upgrades the validator implementation for all beacon proxies.
+     * @param newImplementation The new validator implementation address.
+     */
+    function upgradeValidatorImplementation(address newImplementation) external;
 }

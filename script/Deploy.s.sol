@@ -12,8 +12,10 @@ import { DisputeResolver } from "../src/DisputeResolver.sol";
 
 /**
  * @title Deploy
- * @dev Deployment script for the GenLayer consensus system contracts.
- * Run with: forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast
+ * @dev Deployment script for the GenLayer consensus system contracts with beacon proxy pattern.
+ *
+ * Usage:
+ * forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast
  */
 contract Deploy is Script {
     // Initial supply of GLT tokens (100 million)
@@ -22,8 +24,8 @@ contract Deploy is Script {
     function run() external {
         uint256 deployerPrivateKey = uint256(vm.envBytes32("PRIVATE_KEY"));
         address deployer = vm.addr(deployerPrivateKey);
-        
-        console2.log("Deploying GenLayer contracts...");
+
+        console2.log("Deploying GenLayer contracts with Beacon Proxy architecture...");
         console2.log("Deployer:", deployer);
 
         vm.startBroadcast(deployerPrivateKey);
@@ -36,12 +38,13 @@ contract Deploy is Script {
         MockLLMOracle llmOracle = new MockLLMOracle();
         console2.log("MockLLMOracle deployed at:", address(llmOracle));
 
-        // 3. Deploy ValidatorRegistry
+        // 3. Deploy ValidatorRegistry (includes validator implementation and beacon)
         ValidatorRegistry validatorRegistry = new ValidatorRegistry(
             address(gltToken),
             deployer // slasher role initially set to deployer
         );
         console2.log("ValidatorRegistry deployed at:", address(validatorRegistry));
+        console2.log("ValidatorBeacon deployed at:", validatorRegistry.getValidatorBeacon());
 
         // 4. Deploy ProposalManager
         ProposalManager proposalManager = new ProposalManager(
@@ -60,11 +63,8 @@ contract Deploy is Script {
         console2.log("ConsensusEngine deployed at:", address(consensusEngine));
 
         // 6. Deploy DisputeResolver
-        DisputeResolver disputeResolver = new DisputeResolver(
-            address(gltToken),
-            address(validatorRegistry),
-            address(proposalManager)
-        );
+        DisputeResolver disputeResolver =
+            new DisputeResolver(address(gltToken), address(validatorRegistry), address(proposalManager));
         console2.log("DisputeResolver deployed at:", address(disputeResolver));
 
         // 7. Initial GLT minting
@@ -79,12 +79,21 @@ contract Deploy is Script {
 
         console2.log("\nDeployment complete!");
         console2.log("=====================================");
+        console2.log("Architecture: Beacon Proxy Pattern");
+        console2.log("=====================================");
         console2.log("GLTToken:", address(gltToken));
         console2.log("MockLLMOracle:", address(llmOracle));
         console2.log("ValidatorRegistry:", address(validatorRegistry));
+        console2.log("ValidatorBeacon:", validatorRegistry.getValidatorBeacon());
         console2.log("ProposalManager:", address(proposalManager));
         console2.log("ConsensusEngine:", address(consensusEngine));
         console2.log("DisputeResolver:", address(disputeResolver));
+        console2.log("=====================================");
+        console2.log("\nKey Features:");
+        console2.log("- Each validator gets their own beacon proxy contract");
+        console2.log("- Validator stake and metadata are isolated per validator");
+        console2.log("- Upgradeable validator logic through beacon pattern");
+        console2.log("- Enhanced metadata support for validator information");
         console2.log("=====================================");
     }
 }

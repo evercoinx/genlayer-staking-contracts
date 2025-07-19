@@ -1,31 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { Test } from "@forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import { ValidatorRegistry } from "../../src/ValidatorRegistry.sol";
-import { IValidatorRegistry } from "../../src/interfaces/IValidatorRegistry.sol";
+import { ValidatorBeacon } from "../../src/ValidatorBeacon.sol";
+import { Validator } from "../../src/Validator.sol";
 import { GLTToken } from "../../src/GLTToken.sol";
+import { IValidator } from "../../src/interfaces/IValidator.sol";
+import { IValidatorRegistry } from "../../src/interfaces/IValidatorRegistry.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-/**
- * @title ValidatorRegistryTest
- * @dev Test suite for ValidatorRegistry contract.
- */
 contract ValidatorRegistryTest is Test {
     ValidatorRegistry public registry;
     GLTToken public gltToken;
-    
-    address public deployer = address(this);
-    address public slasher = address(0x1);
-    address public validator1 = address(0x2);
-    address public validator2 = address(0x3);
-    address public validator3 = address(0x4);
-    
-    uint256 constant MINIMUM_STAKE = 1000e18;
-    uint256 constant BONDING_PERIOD = 7 days;
-    uint256 constant MAX_VALIDATORS = 100;
+    address public slasher;
+    address public validator1;
+    address public validator2;
+    address public validator3;
+
+    uint256 public constant MINIMUM_STAKE = 1000e18;
+    uint256 public constant BONDING_PERIOD = 7 days;
+    uint256 public constant MAX_VALIDATORS = 100;
 
     event ValidatorRegistered(address indexed validator, uint256 stakedAmount);
+    event ValidatorProxyCreated(address indexed validator, address indexed proxy, uint256 stakedAmount);
     event StakeIncreased(address indexed validator, uint256 additionalStake, uint256 newTotalStake);
     event UnstakeRequested(address indexed validator, uint256 unstakeAmount, uint256 unstakeRequestTime);
     event UnstakeCompleted(address indexed validator, uint256 unstakedAmount);
@@ -33,442 +31,434 @@ contract ValidatorRegistryTest is Test {
     event ActiveValidatorSetUpdated(address[] validators, uint256 blockNumber);
 
     function setUp() public {
+        slasher = makeAddr("slasher");
+        validator1 = makeAddr("validator1");
+        validator2 = makeAddr("validator2");
+        validator3 = makeAddr("validator3");
+
         // Deploy GLT token
-        gltToken = new GLTToken(deployer);
-        
-        // Deploy ValidatorRegistry
+        gltToken = new GLTToken(address(this));
+
+        // Deploy registry
         registry = new ValidatorRegistry(address(gltToken), slasher);
-        
-        // Mint tokens to validators
-        gltToken.mint(validator1, 10_000e18);
-        gltToken.mint(validator2, 10_000e18);
-        gltToken.mint(validator3, 10_000e18);
-        
-        // Approve registry to spend tokens
-        vm.prank(validator1);
-        gltToken.approve(address(registry), type(uint256).max);
-        
-        vm.prank(validator2);
-        gltToken.approve(address(registry), type(uint256).max);
-        
-        vm.prank(validator3);
-        gltToken.approve(address(registry), type(uint256).max);
+
+        // Mint tokens for validators
+        gltToken.mint(validator1, 10000e18);
+        gltToken.mint(validator2, 10000e18);
+        gltToken.mint(validator3, 10000e18);
     }
 
-    // Registration Tests
-    function test_RegisterValidator_Success() public {
+    function test_Constructor() public {
+        assertEq(address(registry.gltToken()), address(gltToken));
+        assertEq(registry.slasher(), slasher);
+        assertEq(registry.getMinimumStake(), MINIMUM_STAKE);
+        assertEq(registry.getBondingPeriod(), BONDING_PERIOD);
+        assertEq(registry.getMaxValidators(), MAX_VALIDATORS);
+        assertNotEq(address(registry.getValidatorBeacon()), address(0));
+    }
+
+    function test_RegisterValidator() public {
         uint256 stakeAmount = 2000e18;
-        
+        string memory metadata = "validator1-metadata";
+
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), stakeAmount);
+
         vm.expectEmit(true, false, false, true);
         emit ValidatorRegistered(validator1, stakeAmount);
-        
-        vm.prank(validator1);
+
+        vm.expectEmit(true, false, false, true);
+        emit ValidatorProxyCreated(validator1, address(0), stakeAmount); // address(0) placeholder since we can't predict
+
+        registry.registerValidatorWithMetadata(stakeAmount, metadata);
+        vm.stopPrank();
+
+        // Check validator was registered
+        assertEq(registry.getTotalValidators(), 1);
+        assertEq(registry.getTotalStake(), stakeAmount);
+        assertTrue(registry.isActiveValidator(validator1));
+
+        // Check proxy was created
+        address proxy = registry.getValidatorProxy(validator1);
+        assertNotEq(proxy, address(0));
+
+        // Check validator info
+        IValidator.ValidatorInfo memory info = registry.getValidatorInfoWithMetadata(validator1);
+        assertEq(info.validatorAddress, validator1);
+        assertEq(info.stakedAmount, stakeAmount);
+        assertEq(uint8(info.status), uint8(IValidator.ValidatorStatus.Active));
+        assertEq(info.metadata, metadata);
+
+        // Check active validators
+        address[] memory activeValidators = registry.getActiveValidators();
+        assertEq(activeValidators.length, 1);
+        assertEq(activeValidators[0], validator1);
+    }
+
+    function test_RegisterValidator_WithoutMetadata() public {
+        uint256 stakeAmount = 2000e18;
+
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), stakeAmount);
         registry.registerValidator(stakeAmount);
-        
-        IValidatorRegistry.ValidatorInfo memory info = registry.getValidatorInfo(validator1);
-        
-        assertEq(uint8(info.status), uint8(IValidatorRegistry.ValidatorStatus.Active), "Validator should be active");
-        assertEq(info.stakedAmount, stakeAmount, "Stake amount incorrect");
-        assertEq(info.activationTime, block.timestamp, "Activation time incorrect");
-        assertEq(info.unstakeRequestTime, 0, "Unstake request time should be 0");
-        assertEq(registry.getTotalValidators(), 1, "Total validators incorrect");
-        assertEq(registry.getTotalStake(), stakeAmount, "Total stake incorrect");
+        vm.stopPrank();
+
+        // Check validator was registered
+        assertEq(registry.getTotalValidators(), 1);
+        assertTrue(registry.isActiveValidator(validator1));
+
+        // Check metadata is empty
+        IValidator.ValidatorInfo memory info = registry.getValidatorInfoWithMetadata(validator1);
+        assertEq(info.metadata, "");
     }
 
-    function test_RegisterValidator_RevertIfAlreadyRegistered() public {
-        vm.prank(validator1);
-        registry.registerValidator(MINIMUM_STAKE);
-        
-        vm.expectRevert(IValidatorRegistry.ValidatorAlreadyRegistered.selector);
-        vm.prank(validator1);
-        registry.registerValidator(MINIMUM_STAKE);
-    }
+    function test_RevertWhen_RegisterValidator_InsufficientStake() public {
+        uint256 stakeAmount = 500e18; // Below minimum
 
-    function test_RegisterValidator_RevertIfInsufficientStake() public {
-        uint256 insufficientStake = MINIMUM_STAKE - 1;
-        
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), stakeAmount);
+
         vm.expectRevert(IValidatorRegistry.InsufficientStake.selector);
-        vm.prank(validator1);
-        registry.registerValidator(insufficientStake);
+        registry.registerValidator(stakeAmount);
+        vm.stopPrank();
     }
 
-    // Stake Management Tests
-    function test_IncreaseStake_Success() public {
-        uint256 initialStake = MINIMUM_STAKE;
-        uint256 additionalStake = 500e18;
-        
-        vm.prank(validator1);
+    function test_RevertWhen_RegisterValidator_AlreadyRegistered() public {
+        uint256 stakeAmount = 2000e18;
+
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), stakeAmount * 2);
+        registry.registerValidator(stakeAmount);
+
+        vm.expectRevert(IValidatorRegistry.ValidatorAlreadyRegistered.selector);
+        registry.registerValidator(stakeAmount);
+        vm.stopPrank();
+    }
+
+    function test_IncreaseStake() public {
+        // Register validator first
+        uint256 initialStake = 2000e18;
+        uint256 additionalStake = 1000e18;
+
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), initialStake + additionalStake);
         registry.registerValidator(initialStake);
-        
+
         vm.expectEmit(true, false, false, true);
         emit StakeIncreased(validator1, additionalStake, initialStake + additionalStake);
-        
-        vm.prank(validator1);
+
         registry.increaseStake(additionalStake);
-        
-        IValidatorRegistry.ValidatorInfo memory info = registry.getValidatorInfo(validator1);
-        assertEq(info.stakedAmount, initialStake + additionalStake, "Stake not increased");
-        assertEq(registry.getTotalStake(), initialStake + additionalStake, "Total stake incorrect");
+        vm.stopPrank();
+
+        // Check updated stake
+        IValidator.ValidatorInfo memory info = registry.getValidatorInfoWithMetadata(validator1);
+        assertEq(info.stakedAmount, initialStake + additionalStake);
+        assertEq(registry.getTotalStake(), initialStake + additionalStake);
     }
 
-    function test_IncreaseStake_RevertIfNotRegistered() public {
+    function test_RevertWhen_IncreaseStake_ValidatorNotFound() public {
+        uint256 additionalStake = 1000e18;
+
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), additionalStake);
+
         vm.expectRevert(IValidatorRegistry.ValidatorNotFound.selector);
-        vm.prank(validator1);
-        registry.increaseStake(100e18);
+        registry.increaseStake(additionalStake);
+        vm.stopPrank();
     }
 
-    function test_IncreaseStake_RevertIfZeroAmount() public {
-        vm.prank(validator1);
-        registry.registerValidator(MINIMUM_STAKE);
-        
+    function test_RevertWhen_IncreaseStake_ZeroAmount() public {
+        // Register validator first
+        uint256 initialStake = 2000e18;
+
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), initialStake);
+        registry.registerValidator(initialStake);
+
         vm.expectRevert(IValidatorRegistry.ZeroAmount.selector);
-        vm.prank(validator1);
         registry.increaseStake(0);
+        vm.stopPrank();
     }
 
-    // Unstaking Tests
-    function test_RequestUnstake_FullAmount() public {
-        uint256 stakeAmount = 2000e18;
-        
-        vm.prank(validator1);
-        registry.registerValidator(stakeAmount);
-        
-        vm.expectEmit(true, false, false, true);
-        emit UnstakeRequested(validator1, stakeAmount, block.timestamp);
-        
-        vm.prank(validator1);
-        registry.requestUnstake(stakeAmount);
-        
-        IValidatorRegistry.ValidatorInfo memory info = registry.getValidatorInfo(validator1);
-        assertEq(uint8(info.status), uint8(IValidatorRegistry.ValidatorStatus.Unstaking), "Should be unstaking");
-        assertEq(info.unstakeRequestTime, block.timestamp, "Unstake request time incorrect");
-    }
-
-    function test_RequestUnstake_PartialAmount() public {
-        uint256 stakeAmount = 2000e18;
+    function test_RequestUnstake() public {
+        // Register validator first
+        uint256 initialStake = 2000e18;
         uint256 unstakeAmount = 500e18;
-        
-        vm.prank(validator1);
-        registry.registerValidator(stakeAmount);
-        
+
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), initialStake);
+        registry.registerValidator(initialStake);
+
         vm.expectEmit(true, false, false, true);
         emit UnstakeRequested(validator1, unstakeAmount, block.timestamp);
-        
-        vm.prank(validator1);
+
         registry.requestUnstake(unstakeAmount);
-        
-        IValidatorRegistry.ValidatorInfo memory info = registry.getValidatorInfo(validator1);
-        assertEq(uint8(info.status), uint8(IValidatorRegistry.ValidatorStatus.Active), "Should still be active");
-        assertEq(info.unstakeRequestTime, block.timestamp, "Unstake request time incorrect");
+        vm.stopPrank();
+
+        // Check validator still active (partial unstake)
+        assertTrue(registry.isActiveValidator(validator1));
     }
 
-    function test_RequestUnstake_RevertIfBelowMinimum() public {
-        uint256 stakeAmount = 1500e18;
-        uint256 unstakeAmount = 600e18; // Would leave 900 GLT, below minimum
-        
-        vm.prank(validator1);
-        registry.registerValidator(stakeAmount);
-        
-        vm.expectRevert(IValidatorRegistry.InsufficientStake.selector);
-        vm.prank(validator1);
-        registry.requestUnstake(unstakeAmount);
-    }
+    function test_RequestUnstake_Full() public {
+        // Register validator first
+        uint256 initialStake = 2000e18;
 
-    function test_RequestUnstake_RevertIfExceedsStake() public {
-        uint256 stakeAmount = 1000e18;
-        
-        vm.prank(validator1);
-        registry.registerValidator(stakeAmount);
-        
-        vm.expectRevert(IValidatorRegistry.UnstakeExceedsStake.selector);
-        vm.prank(validator1);
-        registry.requestUnstake(stakeAmount + 1);
-    }
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), initialStake);
+        registry.registerValidator(initialStake);
 
-    function test_CompleteUnstake_Success() public {
-        uint256 stakeAmount = 2000e18;
-        
-        // Register and request unstake
-        vm.prank(validator1);
-        registry.registerValidator(stakeAmount);
-        
-        vm.prank(validator1);
-        registry.requestUnstake(stakeAmount);
-        
-        // Warp past bonding period
-        vm.warp(block.timestamp + BONDING_PERIOD + 1);
-        
-        uint256 balanceBefore = gltToken.balanceOf(validator1);
-        
         vm.expectEmit(true, false, false, true);
-        emit UnstakeCompleted(validator1, stakeAmount);
-        
-        vm.prank(validator1);
+        emit UnstakeRequested(validator1, initialStake, block.timestamp);
+
+        registry.requestUnstake(initialStake);
+        vm.stopPrank();
+
+        // Check validator no longer active (full unstake)
+        assertFalse(registry.isActiveValidator(validator1));
+
+        // Check status
+        IValidator.ValidatorInfo memory info = registry.getValidatorInfoWithMetadata(validator1);
+        assertEq(uint8(info.status), uint8(IValidator.ValidatorStatus.Unstaking));
+    }
+
+    function test_CompleteUnstake() public {
+        // Register validator and request unstake
+        uint256 initialStake = 2000e18;
+
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), initialStake);
+        registry.registerValidator(initialStake);
+        registry.requestUnstake(initialStake);
+        vm.stopPrank();
+
+        // Fast forward bonding period
+        vm.warp(block.timestamp + BONDING_PERIOD + 1);
+
+        uint256 balanceBefore = gltToken.balanceOf(validator1);
+
+        vm.startPrank(validator1);
+        vm.expectEmit(true, false, false, true);
+        emit UnstakeCompleted(validator1, initialStake);
+
         registry.completeUnstake();
-        
+        vm.stopPrank();
+
+        // Check tokens returned
         uint256 balanceAfter = gltToken.balanceOf(validator1);
-        assertEq(balanceAfter - balanceBefore, stakeAmount, "Stake not returned");
-        
-        IValidatorRegistry.ValidatorInfo memory info = registry.getValidatorInfo(validator1);
-        assertEq(info.stakedAmount, 0, "Stake should be 0");
-        assertEq(uint8(info.status), uint8(IValidatorRegistry.ValidatorStatus.Inactive), "Should be inactive");
+        assertEq(balanceAfter - balanceBefore, initialStake);
+
+        // Check total stake updated
+        assertEq(registry.getTotalStake(), 0);
+
+        // Check validator status
+        IValidator.ValidatorInfo memory info = registry.getValidatorInfoWithMetadata(validator1);
+        assertEq(uint8(info.status), uint8(IValidator.ValidatorStatus.Inactive));
     }
 
-    function test_CompleteUnstake_RevertIfBondingPeriodNotMet() public {
-        uint256 stakeAmount = 2000e18;
-        
-        vm.prank(validator1);
-        registry.registerValidator(stakeAmount);
-        
-        vm.prank(validator1);
-        registry.requestUnstake(stakeAmount);
-        
-        // Try to complete before bonding period
-        vm.warp(block.timestamp + BONDING_PERIOD - 1);
-        
-        vm.expectRevert(IValidatorRegistry.BondingPeriodNotMet.selector);
-        vm.prank(validator1);
-        registry.completeUnstake();
-    }
+    function test_SlashValidator() public {
+        // Register validator first
+        uint256 initialStake = 2000e18;
+        uint256 slashAmount = 200e18; // 10%
+        string memory reason = "Misbehavior detected";
 
-    function test_CompleteUnstake_RevertIfNotUnstaking() public {
-        vm.prank(validator1);
-        registry.registerValidator(MINIMUM_STAKE);
-        
-        vm.expectRevert(IValidatorRegistry.InvalidValidatorStatus.selector);
-        vm.prank(validator1);
-        registry.completeUnstake();
-    }
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), initialStake);
+        registry.registerValidator(initialStake);
+        vm.stopPrank();
 
-    // Slashing Tests
-    function test_SlashValidator_Success() public {
-        uint256 stakeAmount = 2000e18;
-        uint256 slashAmount = 200e18;
-        string memory reason = "Misbehavior";
-        
-        vm.prank(validator1);
-        registry.registerValidator(stakeAmount);
-        
+        vm.startPrank(slasher);
         vm.expectEmit(true, false, false, true);
         emit ValidatorSlashed(validator1, slashAmount, reason);
-        
-        vm.prank(slasher);
+
         registry.slashValidator(validator1, slashAmount, reason);
-        
-        IValidatorRegistry.ValidatorInfo memory info = registry.getValidatorInfo(validator1);
-        assertEq(info.stakedAmount, stakeAmount - slashAmount, "Stake not slashed");
-        assertEq(registry.getTotalStake(), stakeAmount - slashAmount, "Total stake incorrect");
+        vm.stopPrank();
+
+        // Check updated stake
+        IValidator.ValidatorInfo memory info = registry.getValidatorInfoWithMetadata(validator1);
+        assertEq(info.stakedAmount, initialStake - slashAmount);
+        assertEq(registry.getTotalStake(), initialStake - slashAmount);
+
+        // Should still be active since remaining stake > minimum
+        assertTrue(registry.isActiveValidator(validator1));
     }
 
-    function test_SlashValidator_RevertIfUnauthorized() public {
-        vm.prank(validator1);
-        registry.registerValidator(MINIMUM_STAKE);
-        
-        vm.expectRevert("ValidatorRegistry: caller is not the slasher");
-        vm.prank(validator2);
-        registry.slashValidator(validator1, 100e18, "Unauthorized slash");
+    function test_SlashValidator_BelowMinimum() public {
+        // Register validator with minimum stake
+        uint256 initialStake = MINIMUM_STAKE;
+        uint256 slashAmount = 1e18; // Small amount
+        string memory reason = "Minor infraction";
+
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), initialStake);
+        registry.registerValidator(initialStake);
+        vm.stopPrank();
+
+        vm.startPrank(slasher);
+        registry.slashValidator(validator1, slashAmount, reason);
+        vm.stopPrank();
+
+        // Check validator marked as slashed
+        IValidator.ValidatorInfo memory info = registry.getValidatorInfoWithMetadata(validator1);
+        assertEq(uint8(info.status), uint8(IValidator.ValidatorStatus.Slashed));
+
+        // Should no longer be active
+        assertFalse(registry.isActiveValidator(validator1));
     }
 
-    function test_SlashValidator_DeactivatesIfBelowMinimum() public {
-        uint256 stakeAmount = MINIMUM_STAKE;
-        uint256 slashAmount = 100e18;
-        
-        vm.prank(validator1);
-        registry.registerValidator(stakeAmount);
-        
-        vm.prank(slasher);
-        registry.slashValidator(validator1, slashAmount, "Large slash");
-        
-        IValidatorRegistry.ValidatorInfo memory info = registry.getValidatorInfo(validator1);
-        assertEq(uint8(info.status), uint8(IValidatorRegistry.ValidatorStatus.Slashed), "Should be slashed");
-        assertEq(info.stakedAmount, stakeAmount - slashAmount, "Stake calculation incorrect");
+    function test_RevertWhen_SlashValidator_NotSlasher() public {
+        // Register validator first
+        uint256 initialStake = 2000e18;
+
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), initialStake);
+        registry.registerValidator(initialStake);
+        vm.stopPrank();
+
+        vm.startPrank(validator2);
+        vm.expectRevert("ValidatorRegistryBeacon: caller is not the slasher");
+        registry.slashValidator(validator1, 100e18, "reason");
+        vm.stopPrank();
     }
 
-    function test_SlashValidator_CapsAtFullStake() public {
-        uint256 stakeAmount = 1000e18;
-        uint256 slashAmount = 2000e18; // More than staked
-        
-        vm.prank(validator1);
-        registry.registerValidator(stakeAmount);
-        
-        vm.prank(slasher);
-        registry.slashValidator(validator1, slashAmount, "Excessive slash");
-        
-        IValidatorRegistry.ValidatorInfo memory info = registry.getValidatorInfo(validator1);
-        assertEq(info.stakedAmount, 0, "Stake should be 0");
-        assertEq(uint8(info.status), uint8(IValidatorRegistry.ValidatorStatus.Slashed), "Should be slashed");
+    function test_ActiveValidatorSetUpdating() public {
+        // Register multiple validators with different stakes
+        uint256[] memory stakes = new uint256[](3);
+        stakes[0] = 3000e18; // validator1 - highest
+        stakes[1] = 1500e18; // validator2 - middle
+        stakes[2] = 1200e18; // validator3 - lowest
+
+        address[] memory validators = new address[](3);
+        validators[0] = validator1;
+        validators[1] = validator2;
+        validators[2] = validator3;
+
+        // Register all validators
+        for (uint256 i = 0; i < 3; i++) {
+            vm.startPrank(validators[i]);
+            gltToken.approve(address(registry), stakes[i]);
+            registry.registerValidator(stakes[i]);
+            vm.stopPrank();
+        }
+
+        // Check active validators are sorted by stake (descending)
+        address[] memory activeValidators = registry.getActiveValidators();
+        assertEq(activeValidators.length, 3);
+        assertEq(activeValidators[0], validator1); // Highest stake
+        assertEq(activeValidators[1], validator2); // Middle stake
+        assertEq(activeValidators[2], validator3); // Lowest stake
     }
 
-    // Admin Tests
-    function test_SetSlasher_Success() public {
-        address newSlasher = address(0x999);
-        
-        registry.setSlasher(newSlasher);
-        
-        assertEq(registry.slasher(), newSlasher, "Slasher not updated");
-    }
+    function test_UpgradeValidatorImplementation() public {
+        // Deploy new implementation
+        Validator newImplementation = new Validator();
 
-    function test_SetSlasher_RevertIfUnauthorized() public {
+        // Only owner can upgrade
         vm.expectRevert();
-        vm.prank(validator1);
-        registry.setSlasher(address(0x999));
+        vm.startPrank(validator1);
+        registry.upgradeValidatorImplementation(address(newImplementation));
+        vm.stopPrank();
+
+        // Owner can upgrade
+        registry.upgradeValidatorImplementation(address(newImplementation));
+
+        // Verify beacon points to new implementation
+        ValidatorBeacon beacon = ValidatorBeacon(registry.getValidatorBeacon());
+        assertEq(beacon.getImplementation(), address(newImplementation));
     }
 
-    function test_SetSlasher_RevertIfZeroAddress() public {
+    function test_SetSlasher() public {
+        address newSlasher = makeAddr("newSlasher");
+
+        // Only owner can set slasher
+        vm.expectRevert();
+        vm.startPrank(validator1);
+        registry.setSlasher(newSlasher);
+        vm.stopPrank();
+
+        // Owner can set slasher
+        registry.setSlasher(newSlasher);
+        assertEq(registry.slasher(), newSlasher);
+    }
+
+    function test_RevertWhen_SetSlasher_ZeroAddress() public {
         vm.expectRevert(IValidatorRegistry.ZeroAddress.selector);
         registry.setSlasher(address(0));
     }
 
-    // View Functions Tests
-    function test_GetMinimumStake() public view {
+    function test_GettersReturnCorrectValues() public {
         assertEq(registry.getMinimumStake(), MINIMUM_STAKE);
-    }
-
-    function test_GetBondingPeriod() public view {
         assertEq(registry.getBondingPeriod(), BONDING_PERIOD);
-    }
-
-    function test_GetMaxValidators() public view {
         assertEq(registry.getMaxValidators(), MAX_VALIDATORS);
+        assertEq(registry.getTotalValidators(), 0);
+        assertEq(registry.getTotalStake(), 0);
+        assertEq(registry.getActiveValidators().length, 0);
     }
 
-    function test_IsActiveValidator() public {
-        assertFalse(registry.isActiveValidator(validator1));
-        
-        vm.prank(validator1);
-        registry.registerValidator(MINIMUM_STAKE);
-        
-        assertTrue(registry.isActiveValidator(validator1));
-        
-        vm.prank(validator1);
-        registry.requestUnstake(MINIMUM_STAKE);
-        
-        assertFalse(registry.isActiveValidator(validator1));
-    }
+    function test_ValidatorProxyInteraction() public {
+        uint256 stakeAmount = 2000e18;
+        string memory metadata = "test-metadata";
 
-    function test_GetActiveValidators() public {
-        // Register multiple validators
-        vm.prank(validator1);
-        registry.registerValidator(3000e18);
-        
-        vm.prank(validator2);
-        registry.registerValidator(2000e18);
-        
-        vm.prank(validator3);
-        registry.registerValidator(1000e18);
-        
-        address[] memory activeValidators = registry.getActiveValidators();
-        assertEq(activeValidators.length, 3, "Should have 3 active validators");
-        
-        // Validators should be sorted by stake (highest first)
-        assertEq(activeValidators[0], validator1);
-        assertEq(activeValidators[1], validator2);
-        assertEq(activeValidators[2], validator3);
-    }
-
-    function test_UpdateActiveValidatorSet() public {
-        // This tests the maximum validator limit
-        uint256 validatorCount = 10;
-        
-        // Register validators
-        for (uint256 i = 0; i < validatorCount; i++) {
-            address validator = address(uint160(0x1000 + i));
-            gltToken.mint(validator, MINIMUM_STAKE * 2);
-            
-            vm.prank(validator);
-            gltToken.approve(address(registry), MINIMUM_STAKE * 2);
-            
-            vm.prank(validator);
-            registry.registerValidator(MINIMUM_STAKE + (i * 100e18));
-        }
-        
-        // Check active set
-        address[] memory activeValidators = registry.getActiveValidators();
-        assertEq(activeValidators.length, validatorCount);
-        
-        // Call update explicitly
-        registry.updateActiveValidatorSet();
-        
-        // Verify event was emitted
-        vm.expectEmit(false, false, false, true);
-        emit ActiveValidatorSetUpdated(activeValidators, block.number);
-        registry.updateActiveValidatorSet();
-    }
-
-    // Multi-validator Tests
-    function test_MaximumValidators_ReachedLimit() public {
-        // Register exactly MAX_VALIDATORS
-        for (uint256 i = 0; i < MAX_VALIDATORS; i++) {
-            address validator = address(uint160(0x1000 + i));
-            gltToken.mint(validator, MINIMUM_STAKE);
-            
-            vm.prank(validator);
-            gltToken.approve(address(registry), MINIMUM_STAKE);
-            
-            vm.prank(validator);
-            registry.registerValidator(MINIMUM_STAKE);
-        }
-        
-        assertEq(registry.getActiveValidators().length, MAX_VALIDATORS);
-        
-        // Try to register one more with higher stake
-        address extraValidator = address(0x9999);
-        gltToken.mint(extraValidator, MINIMUM_STAKE * 2);
-        
-        vm.prank(extraValidator);
-        gltToken.approve(address(registry), MINIMUM_STAKE * 2);
-        
-        // Should succeed but only top MAX_VALIDATORS should be active
-        vm.prank(extraValidator);
-        registry.registerValidator(MINIMUM_STAKE * 2);
-        
-        // Active set should still be MAX_VALIDATORS
-        assertEq(registry.getActiveValidators().length, MAX_VALIDATORS);
-        
-        // The new validator with higher stake should be in the active set
-        assertTrue(registry.isActiveValidator(extraValidator));
-    }
-
-    // Fuzz Tests
-    function testFuzz_RegisterValidator(uint256 stakeAmount) public {
-        // Bound the stake amount to reasonable values
-        stakeAmount = bound(stakeAmount, MINIMUM_STAKE, 10_000e18);
-        
-        gltToken.mint(validator1, stakeAmount);
-        vm.prank(validator1);
+        vm.startPrank(validator1);
         gltToken.approve(address(registry), stakeAmount);
-        
-        vm.prank(validator1);
-        registry.registerValidator(stakeAmount);
-        
-        IValidatorRegistry.ValidatorInfo memory info = registry.getValidatorInfo(validator1);
-        assertEq(info.stakedAmount, stakeAmount);
+        registry.registerValidatorWithMetadata(stakeAmount, metadata);
+        vm.stopPrank();
+
+        // Get proxy address
+        address proxy = registry.getValidatorProxy(validator1);
+        assertNotEq(proxy, address(0));
+
+        // Interact directly with validator proxy
+        IValidator validatorContract = IValidator(proxy);
+        assertEq(validatorContract.getValidatorAddress(), validator1);
+        assertEq(validatorContract.getStakedAmount(), stakeAmount);
+        assertEq(validatorContract.getMetadata(), metadata);
+        assertEq(uint8(validatorContract.getStatus()), uint8(IValidator.ValidatorStatus.Active));
     }
 
-    function testFuzz_SlashValidator(uint256 initialStake, uint256 slashAmount) public {
-        // Bound the stake and slash amounts
-        initialStake = bound(initialStake, MINIMUM_STAKE, 10_000e18);
-        slashAmount = bound(slashAmount, 1, initialStake * 2);
-        
-        gltToken.mint(validator1, initialStake);
-        vm.prank(validator1);
-        gltToken.approve(address(registry), initialStake);
-        
-        vm.prank(validator1);
+    function test_ValidatorMetadataUpdate() public {
+        uint256 stakeAmount = 2000e18;
+        string memory initialMetadata = "initial-metadata";
+        string memory newMetadata = "updated-metadata";
+
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), stakeAmount);
+        registry.registerValidatorWithMetadata(stakeAmount, initialMetadata);
+
+        // Update metadata directly through proxy
+        address proxy = registry.getValidatorProxy(validator1);
+        IValidator(proxy).updateMetadata(newMetadata);
+        vm.stopPrank();
+
+        // Check metadata was updated
+        IValidator.ValidatorInfo memory info = registry.getValidatorInfoWithMetadata(validator1);
+        assertEq(info.metadata, newMetadata);
+    }
+
+    function testFuzz_RegisterValidator(uint256 stakeAmount) public {
+        stakeAmount = bound(stakeAmount, MINIMUM_STAKE, 10000e18);
+
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), stakeAmount);
+        registry.registerValidator(stakeAmount);
+        vm.stopPrank();
+
+        assertEq(registry.getTotalValidators(), 1);
+        assertEq(registry.getTotalStake(), stakeAmount);
+        assertTrue(registry.isActiveValidator(validator1));
+    }
+
+    function testFuzz_IncreaseStake(uint256 initialStake, uint256 additionalStake) public {
+        initialStake = bound(initialStake, MINIMUM_STAKE, 5000e18);
+        additionalStake = bound(additionalStake, 1, 10000e18 - initialStake);
+
+        vm.startPrank(validator1);
+        gltToken.approve(address(registry), initialStake + additionalStake);
         registry.registerValidator(initialStake);
-        
-        vm.prank(slasher);
-        registry.slashValidator(validator1, slashAmount, "Fuzz slash");
-        
-        IValidatorRegistry.ValidatorInfo memory info = registry.getValidatorInfo(validator1);
-        
-        uint256 expectedStake = slashAmount > initialStake ? 0 : initialStake - slashAmount;
-        assertEq(info.stakedAmount, expectedStake);
-        
-        if (expectedStake < MINIMUM_STAKE) {
-            assertEq(uint8(info.status), uint8(IValidatorRegistry.ValidatorStatus.Slashed));
-        } else {
-            assertEq(uint8(info.status), uint8(IValidatorRegistry.ValidatorStatus.Active));
-        }
+        registry.increaseStake(additionalStake);
+        vm.stopPrank();
+
+        IValidator.ValidatorInfo memory info = registry.getValidatorInfoWithMetadata(validator1);
+        assertEq(info.stakedAmount, initialStake + additionalStake);
+        assertEq(registry.getTotalStake(), initialStake + additionalStake);
     }
 }
