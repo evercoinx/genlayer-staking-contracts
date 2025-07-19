@@ -564,4 +564,60 @@ contract FullFlowIntegrationTest is Test {
         
         console2.log("System handling multiple proposals and disputes concurrently");
     }
+
+    // Test: Non-validator can create proposals
+    function test_Integration_NonValidatorCanCreateProposal() public {
+        console2.log("=== Non-Validator Creating Proposal ===");
+        
+        // 1. Create a non-validator address
+        address nonValidator = address(0x9999);
+        
+        // Give non-validator some GLT tokens (not needed for proposal creation)
+        gltToken.mint(nonValidator, 100e18);
+        
+        // 2. Non-validator creates proposal
+        bytes32 contentHash = keccak256("Non-validator proposal");
+        vm.prank(nonValidator);
+        uint256 proposalId = proposalManager.createProposal(contentHash, "Non-Validator Test Proposal");
+        console2.log("Non-validator created proposal with ID:", proposalId);
+        
+        // 3. Verify proposal was created
+        IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
+        assertEq(proposal.proposer, nonValidator);
+        assertEq(proposal.contentHash, contentHash);
+        assertEq(uint8(proposal.state), uint8(IProposalManager.ProposalState.Proposed));
+        
+        // 4. Proposal can be approved optimistically
+        vm.prank(proposalManagerRole);
+        proposalManager.approveOptimistically(proposalId);
+        console2.log("Non-validator proposal optimistically approved");
+        
+        // 5. Validators can still challenge it
+        vm.prank(validator1);
+        proposalManager.challengeProposal(proposalId);
+        console2.log("Validator challenged non-validator's proposal");
+        
+        // 6. And it can go through consensus
+        vm.prank(consensusInitiatorRole);
+        uint256 roundId = consensusEngine.initiateConsensus(proposalId);
+        console2.log("Non-validator proposal sent to consensus with round ID:", roundId);
+        
+        // 7. Validators vote
+        vm.prank(validator1);
+        consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true));
+        
+        vm.prank(validator2);
+        consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR2_PRIVATE_KEY, roundId, true));
+        
+        vm.prank(validator3);
+        consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR3_PRIVATE_KEY, roundId, true));
+        
+        // 8. Wait for voting period
+        vm.roll(block.number + VOTING_PERIOD + 1);
+        
+        // 9. Finalize consensus
+        bool approved = consensusEngine.finalizeConsensus(roundId);
+        assertTrue(approved);
+        console2.log("Non-validator proposal approved through consensus");
+    }
 }

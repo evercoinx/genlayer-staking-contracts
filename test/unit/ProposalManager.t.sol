@@ -97,13 +97,23 @@ contract ProposalManagerTest is Test {
         assertFalse(proposal.llmValidated);
     }
 
-    function test_CreateProposal_RevertIfNotActiveValidator() public {
+    function test_CreateProposal_AllowsNonValidators() public {
         bytes32 contentHash = keccak256("proposal content");
         string memory metadata = "Test proposal";
         
-        vm.expectRevert("ProposalManager: caller is not an active validator");
+        // Non-validators should be able to create proposals
+        vm.expectEmit(true, true, true, true);
+        emit ProposalCreated(1, nonValidator, contentHash);
+        
         vm.prank(nonValidator);
-        proposalManager.createProposal(contentHash, metadata);
+        uint256 proposalId = proposalManager.createProposal(contentHash, metadata);
+        
+        assertEq(proposalId, 1);
+        
+        IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
+        assertEq(proposal.proposer, nonValidator);
+        assertEq(proposal.contentHash, contentHash);
+        assertEq(proposal.metadata, metadata);
     }
 
     function test_CreateProposal_RevertIfEmptyContentHash() public {

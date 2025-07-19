@@ -710,4 +710,61 @@ contract DisputeResolverTest is Test {
         bool expectedChallengerWon = dispute.votesFor >= 2;
         assertEq(dispute.challengerWon, expectedChallengerWon);
     }
+
+    function test_ResolveDispute_NonValidatorProposer_ChallengerWins() public {
+        // Give non-validator some tokens
+        gltToken.mint(nonValidator, 100e18);
+        
+        // Non-validator creates proposal
+        vm.prank(nonValidator);
+        uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Non-validator proposal");
+        
+        // Approve optimistically
+        vm.prank(proposalManagerRole);
+        proposalManager.approveOptimistically(proposalId);
+        
+        // Create dispute
+        uint256 challengeStake = 200e18;
+        vm.prank(validator3);
+        uint256 disputeId = disputeResolver.createDispute(proposalId, challengeStake);
+        
+        // Vote: 2 for (supporting challenge), 2 against - challenger should still win with 50%
+        vm.prank(validator1);
+        disputeResolver.voteOnDispute(disputeId, true, _createVoteSignature(VALIDATOR1_PRIVATE_KEY, disputeId, true));
+        
+        vm.prank(validator2);
+        disputeResolver.voteOnDispute(disputeId, true, _createVoteSignature(VALIDATOR2_PRIVATE_KEY, disputeId, true));
+        
+        vm.prank(validator3);
+        disputeResolver.voteOnDispute(disputeId, false, _createVoteSignature(VALIDATOR3_PRIVATE_KEY, disputeId, false));
+        
+        vm.prank(validator4);
+        disputeResolver.voteOnDispute(disputeId, false, _createVoteSignature(VALIDATOR4_PRIVATE_KEY, disputeId, false));
+        
+        // Move past voting period
+        vm.warp(block.timestamp + DISPUTE_VOTING_PERIOD + 1);
+        
+        // Track balances
+        uint256 challengerBalanceBeforeResolve = gltToken.balanceOf(validator3);
+        uint256 disputeResolverBalanceBefore = gltToken.balanceOf(address(disputeResolver));
+        
+        // Resolve dispute
+        disputeResolver.resolveDispute(disputeId);
+        
+        // Check dispute state
+        IDisputeResolver.Dispute memory dispute = disputeResolver.getDispute(disputeId);
+        assertEq(uint8(dispute.state), uint8(IDisputeResolver.DisputeState.Resolved));
+        assertTrue(dispute.challengerWon);
+        
+        // Since proposer is not a validator, the slash amount is calculated but not applied
+        // The slashAmount field shows what would have been slashed if they were a validator
+        uint256 calculatedSlashAmount = (challengeStake * SLASH_PERCENTAGE) / 100;
+        assertEq(dispute.slashAmount, calculatedSlashAmount);
+        
+        // Challenger should get their stake back
+        assertEq(gltToken.balanceOf(validator3), challengerBalanceBeforeResolve + challengeStake);
+        
+        // DisputeResolver should have transferred all funds
+        assertEq(gltToken.balanceOf(address(disputeResolver)), disputeResolverBalanceBefore - challengeStake);
+    }
 }

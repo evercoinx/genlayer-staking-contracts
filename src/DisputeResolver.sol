@@ -236,16 +236,21 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
 
         if (challengerWon) {
             // Challenger wins - slash proposer and reward challenger
-            // Get proposer's staked amount from validator registry
-            IValidatorRegistry.ValidatorInfo memory proposerInfo = validatorRegistry.getValidatorInfo(dispute.proposer);
-            
-            // Slash proposer in validator registry
             uint256 actualSlashAmount = 0;
-            if (proposerInfo.stakedAmount > 0) {
-                actualSlashAmount = slashAmount > proposerInfo.stakedAmount ? proposerInfo.stakedAmount : slashAmount;
-                validatorRegistry.slashValidator(dispute.proposer, actualSlashAmount, "Lost dispute");
-                dispute.slashAmount = actualSlashAmount;
+            
+            // Check if proposer is a validator before trying to slash
+            if (validatorRegistry.isActiveValidator(dispute.proposer)) {
+                // Get proposer's staked amount from validator registry
+                IValidatorRegistry.ValidatorInfo memory proposerInfo = validatorRegistry.getValidatorInfo(dispute.proposer);
+                
+                // Slash proposer in validator registry
+                if (proposerInfo.stakedAmount > 0) {
+                    actualSlashAmount = slashAmount > proposerInfo.stakedAmount ? proposerInfo.stakedAmount : slashAmount;
+                    validatorRegistry.slashValidator(dispute.proposer, actualSlashAmount, "Lost dispute");
+                    dispute.slashAmount = actualSlashAmount;
+                }
             }
+            // If proposer is not a validator, they don't get slashed but still lose their reputation
 
             // Return challenge stake to challenger
             // Note: The slashed amount stays in ValidatorRegistry, so we only return the challenge stake

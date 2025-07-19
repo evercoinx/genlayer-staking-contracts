@@ -107,7 +107,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     function createProposal(
         bytes32 contentHash,
         string calldata metadata
-    ) external onlyActiveValidator returns (uint256 proposalId) {
+    ) external returns (uint256 proposalId) {
         if (contentHash == bytes32(0)) {
             revert InvalidContentHash();
         }
