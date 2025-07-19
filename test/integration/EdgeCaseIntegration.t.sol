@@ -233,7 +233,7 @@ contract EdgeCaseIntegrationTest is Test {
         vm.prank(consensusInitiatorRole);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
         
-        // With 3 validators, 66% quorum means 2 votes needed
+        // With 3 validators, 60% quorum means 2 votes needed (60% of 3 = 1.8, rounds up to 2)
         // Cast exactly 2 votes (66.67%)
         vm.prank(validator1);
         consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true));
@@ -241,7 +241,7 @@ contract EdgeCaseIntegrationTest is Test {
         vm.prank(validator2);
         consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR2_PRIVATE_KEY, roundId, true));
         
-        console2.log("Cast 2/3 votes (66.67%) - exactly meeting quorum");
+        console2.log("Cast 2/3 votes (66.67%) - exceeding 60% quorum");
         
         // Finalize
         vm.roll(block.number + VOTING_PERIOD + 1);
@@ -311,7 +311,7 @@ contract EdgeCaseIntegrationTest is Test {
         // Finalize with reduced validator set
         vm.roll(block.number + VOTING_PERIOD + 1);
         bool approved = consensusEngine.finalizeConsensus(roundId);
-        assertFalse(approved); // Only 1/2 validators voted (50% < 66%)
+        assertFalse(approved); // Only 1/2 validators voted (50% < 60%)
         console2.log("Consensus failed due to insufficient participation");
     }
 
@@ -431,7 +431,7 @@ contract EdgeCaseIntegrationTest is Test {
         // Finalize with zero participation
         vm.roll(block.number + VOTING_PERIOD + 1);
         bool approved = consensusEngine.finalizeConsensus(roundId);
-        assertFalse(approved); // 0% < 66% quorum
+        assertFalse(approved); // 0% < 60% quorum
         
         IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
         assertEq(uint8(proposal.state), uint8(IProposalManager.ProposalState.Challenged));

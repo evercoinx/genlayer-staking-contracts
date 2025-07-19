@@ -76,7 +76,7 @@ The system consists of 6 interconnected contracts that implement a complete gove
 
 4. **ConsensusEngine** ← → ProposalManager
    - Initiates voting rounds for challenged proposals
-   - 100-block voting periods with 66% quorum requirement
+   - 100-block voting periods with 60% quorum requirement (3/5 validators)
    - Updates proposal state based on consensus outcome
 
 5. **DisputeResolver** → ValidatorRegistry & ProposalManager
@@ -116,7 +116,7 @@ All validator actions require ECDSA signatures with specific message formats:
 ### Governance Parameters
 - Challenge window: 10 blocks
 - Consensus voting period: 100 blocks
-- Consensus quorum: 66%
+- Consensus quorum: 60% (3/5 validators)
 - Dispute voting period: 50 blocks
 - Minimum challenge stake: 100 GLT
 

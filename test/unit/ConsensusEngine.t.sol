@@ -44,7 +44,7 @@ contract ConsensusEngineTest is Test {
     
     uint256 constant MINIMUM_STAKE = 1000e18;
     uint256 constant VOTING_PERIOD = 100;
-    uint256 constant QUORUM_PERCENTAGE = 66;
+    uint256 constant QUORUM_PERCENTAGE = 60;
 
     event ConsensusRoundStarted(
         uint256 indexed proposalId,
@@ -344,7 +344,7 @@ contract ConsensusEngineTest is Test {
         vm.prank(consensusInitiator);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
         
-        // 2 out of 3 validators vote for (66% quorum)
+        // 2 out of 3 validators vote for (67% > 60% quorum)
         bytes memory signature1 = _createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true);
         vm.prank(validator1);
         consensusEngine.castVote(roundId, true, signature1);
@@ -372,7 +372,7 @@ contract ConsensusEngineTest is Test {
         vm.prank(consensusInitiator);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
         
-        // Only 1 out of 3 validators vote (33% < 66% quorum)
+        // Only 1 out of 3 validators vote (33% < 60% quorum)
         bytes memory signature1 = _createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true);
         vm.prank(validator1);
         consensusEngine.castVote(roundId, true, signature1);
@@ -538,7 +538,7 @@ contract ConsensusEngineTest is Test {
         vm.prank(consensusInitiator);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
         
-        // Exactly 66% vote for (2/3 validators)
+        // Exactly 67% vote for (2/3 validators, > 60% quorum)
         bytes memory signature1 = _createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true);
         vm.prank(validator1);
         consensusEngine.castVote(roundId, true, signature1);
@@ -595,7 +595,7 @@ contract ConsensusEngineTest is Test {
         vm.roll(block.number + VOTING_PERIOD + 1);
         bool approved = consensusEngine.finalizeConsensus(roundId);
         
-        // Check if quorum is met (66% of 3 validators = 2 votes)
+        // Check if quorum is met (60% of 3 validators = 1.8, so 2 votes needed)
         bool expectedApproval = (votesFor + votesAgainst) >= 2 && votesFor > votesAgainst;
         assertEq(approved, expectedApproval);
     }

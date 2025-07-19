@@ -24,9 +24,9 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
     uint256 public constant VOTING_PERIOD = 100;
 
     /**
-     * @dev Quorum percentage required for consensus (66%).
+     * @dev Quorum percentage required for consensus (60% - at least 3/5 validators as per PRD).
      */
-    uint256 public constant QUORUM_PERCENTAGE = 66;
+    uint256 public constant QUORUM_PERCENTAGE = 60;
 
     /**
      * @dev Counter for consensus round IDs.

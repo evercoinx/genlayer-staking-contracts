@@ -33,7 +33,7 @@ contract ConsensusEngineFuzzTest is Test {
     
     uint256 constant MINIMUM_STAKE = 1000e18;
     uint256 constant VOTING_PERIOD = 100;
-    uint256 constant QUORUM_PERCENTAGE = 66;
+    uint256 constant QUORUM_PERCENTAGE = 60;
 
     function setUp() public {
         gltToken = new GLTToken(owner);
