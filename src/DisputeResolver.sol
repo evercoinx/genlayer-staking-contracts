@@ -221,8 +221,13 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
 
         dispute.state = DisputeState.VotingComplete;
 
-        // Determine outcome based on votes
-        bool challengerWon = dispute.votesFor > dispute.votesAgainst;
+        // Determine outcome based on PRD requirement: >=50% vote to reject
+        // Get total number of active validators
+        uint256 totalActiveValidators = validatorRegistry.getActiveValidators().length;
+        
+        // Calculate if at least 50% of validators voted to reject (support the challenge)
+        // Using multiplication to avoid division rounding issues
+        bool challengerWon = dispute.votesFor * 2 >= totalActiveValidators;
         dispute.challengerWon = challengerWon;
 
         // Calculate slash amount (10% of challenge stake)

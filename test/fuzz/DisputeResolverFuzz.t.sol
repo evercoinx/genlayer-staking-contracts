@@ -191,10 +191,11 @@ contract DisputeResolverFuzzTest is Test {
         proposerStake = bound(proposerStake, MINIMUM_STAKE, 20000e18);
         challengeStake = bound(challengeStake, MINIMUM_CHALLENGE_STAKE, 2000e18);
         
-        // Setup validators
+        // Setup validators - need 4 for proper percentage testing
         address proposer = _setupValidator(0x4444, proposerStake);
         address challenger = _setupValidator(0x5555, 2000e18);
-        address voter = _setupValidator(0x6666, 1500e18);
+        address voter1 = _setupValidator(0x6666, 1500e18);
+        address voter2 = _setupValidator(0x7777, 1200e18);
         
         // Create proposal and dispute
         vm.prank(proposer);
@@ -206,12 +207,19 @@ contract DisputeResolverFuzzTest is Test {
         vm.prank(challenger);
         uint256 disputeId = disputeResolver.createDispute(proposalId, challengeStake);
         
-        // Vote for challenger
-        vm.prank(voter);
+        // Vote for challenger - need 2 votes out of 4 to win (50%)
+        vm.prank(voter1);
         disputeResolver.voteOnDispute(
             disputeId,
             true,
             _createDisputeVoteSignature(0x6666, disputeId, true)
+        );
+        
+        vm.prank(voter2);
+        disputeResolver.voteOnDispute(
+            disputeId,
+            true,
+            _createDisputeVoteSignature(0x7777, disputeId, true)
         );
         
         // Record balances before resolution
@@ -345,10 +353,10 @@ contract DisputeResolverFuzzTest is Test {
         proposerStake = bound(proposerStake, MINIMUM_STAKE, 10000e18);
         challengeStake = bound(challengeStake, MINIMUM_CHALLENGE_STAKE, 1000e18);
         
-        // Setup
+        // Setup - need 3 validators minimum
         address proposer = _setupValidator(0xCCCC, proposerStake);
         address challenger = _setupValidator(0xDDDD, challengeStake + 1000e18);
-        address voter = _setupValidator(0xEEEE, 1500e18);
+        address voter1 = _setupValidator(0xEEEE, 1500e18);
         
         // Create proposal and dispute
         vm.prank(proposer);
@@ -360,13 +368,23 @@ contract DisputeResolverFuzzTest is Test {
         vm.prank(challenger);
         uint256 disputeId = disputeResolver.createDispute(proposalId, challengeStake);
         
-        // Vote
-        vm.prank(voter);
+        // Vote - with 3 validators, need 2 votes for challenge to win (>= 50%)
+        vm.prank(voter1);
         disputeResolver.voteOnDispute(
             disputeId,
             supportChallenge,
             _createDisputeVoteSignature(0xEEEE, disputeId, supportChallenge)
         );
+        
+        if (supportChallenge) {
+            // Add second vote to reach 50% threshold
+            vm.prank(proposer);
+            disputeResolver.voteOnDispute(
+                disputeId,
+                true,
+                _createDisputeVoteSignature(0xCCCC, disputeId, true)
+            );
+        }
         
         // Record states before resolution
         uint256 proposerStakeBefore = validatorRegistry.getValidatorInfo(proposer).stakedAmount;
@@ -378,24 +396,26 @@ contract DisputeResolverFuzzTest is Test {
         
         // Check results based on outcome
         IDisputeResolver.Dispute memory dispute = disputeResolver.getDispute(disputeId);
+        
+        // Calculate expected values outside of if to avoid stack depth
+        uint256 slashPercent = (challengeStake * SLASH_PERCENTAGE) / 100;
+        uint256 maxSlash = (proposerStakeBefore * SLASH_PERCENTAGE) / 100;
+        uint256 expectedSlash = slashPercent < maxSlash ? slashPercent : maxSlash;
+        
         if (supportChallenge) {
             assertTrue(dispute.challengerWon);
             
-            // Calculate expected slash (same logic as ValidatorRegistry)
-            uint256 disputeSlashAmount = (challengeStake * SLASH_PERCENTAGE) / 100;
-            uint256 maxSlashAmount = (proposerStakeBefore * SLASH_PERCENTAGE) / 100;
-            uint256 expectedSlash = disputeSlashAmount < maxSlashAmount ? disputeSlashAmount : maxSlashAmount;
-            
-            IValidatorRegistry.ValidatorInfo memory info = validatorRegistry.getValidatorInfo(proposer);
-            assertEq(info.stakedAmount, proposerStakeBefore - expectedSlash);
+            // Verify proposer was slashed
+            uint256 proposerStakeAfter = validatorRegistry.getValidatorInfo(proposer).stakedAmount;
+            assertEq(proposerStakeAfter, proposerStakeBefore - expectedSlash);
             
             // Challenger gets refund
             assertEq(gltToken.balanceOf(challenger), challengerBalanceBefore + challengeStake);
         } else {
             assertFalse(dispute.challengerWon);
             // Proposer stake unchanged
-            IValidatorRegistry.ValidatorInfo memory info = validatorRegistry.getValidatorInfo(proposer);
-            assertEq(info.stakedAmount, proposerStakeBefore);
+            uint256 proposerStakeAfter = validatorRegistry.getValidatorInfo(proposer).stakedAmount;
+            assertEq(proposerStakeAfter, proposerStakeBefore);
             
             // Challenger loses part of their stake, proposer gets reward
             assertEq(gltToken.balanceOf(challenger), challengerBalanceBefore);

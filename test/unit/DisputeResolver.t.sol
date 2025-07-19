@@ -613,13 +613,34 @@ contract DisputeResolverTest is Test {
         // All disputes created successfully
     }
 
-    function test_TieVote_ProposerWins() public {
+    function test_ExactlyHalfVotes_ChallengerWins() public {
         uint256 proposalId = _createOptimisticallyApprovedProposal();
         
         vm.prank(validator3);
         uint256 disputeId = disputeResolver.createDispute(proposalId, 200e18);
         
-        // Create tie: 1 for, 1 against
+        // With 4 validators, 2 votes for challenge (50%) should make challenger win
+        vm.prank(validator4);
+        disputeResolver.voteOnDispute(disputeId, true, _createVoteSignature(VALIDATOR4_PRIVATE_KEY, disputeId, true));
+        
+        vm.prank(validator1);
+        disputeResolver.voteOnDispute(disputeId, true, _createVoteSignature(VALIDATOR1_PRIVATE_KEY, disputeId, true));
+        
+        vm.warp(block.timestamp + DISPUTE_VOTING_PERIOD + 1);
+        disputeResolver.resolveDispute(disputeId);
+        
+        // Challenger should win with exactly 50% (2/4) votes
+        IDisputeResolver.Dispute memory dispute = disputeResolver.getDispute(disputeId);
+        assertTrue(dispute.challengerWon);
+    }
+
+    function test_LessThanHalfVotes_ProposerWins() public {
+        uint256 proposalId = _createOptimisticallyApprovedProposal();
+        
+        vm.prank(validator3);
+        uint256 disputeId = disputeResolver.createDispute(proposalId, 200e18);
+        
+        // With 4 validators, 1 vote for challenge (25%) - proposer should win
         vm.prank(validator4);
         disputeResolver.voteOnDispute(disputeId, true, _createVoteSignature(VALIDATOR4_PRIVATE_KEY, disputeId, true));
         
@@ -629,7 +650,7 @@ contract DisputeResolverTest is Test {
         vm.warp(block.timestamp + DISPUTE_VOTING_PERIOD + 1);
         disputeResolver.resolveDispute(disputeId);
         
-        // Proposer should win on tie
+        // Proposer should win with less than 50% votes for challenge
         IDisputeResolver.Dispute memory dispute = disputeResolver.getDispute(disputeId);
         assertFalse(dispute.challengerWon);
     }
@@ -685,7 +706,8 @@ contract DisputeResolverTest is Test {
         disputeResolver.resolveDispute(disputeId);
         
         IDisputeResolver.Dispute memory dispute = disputeResolver.getDispute(disputeId);
-        bool expectedChallengerWon = dispute.votesFor > dispute.votesAgainst;
+        // With 4 validators, challenger wins if votesFor >= 2 (50% or more)
+        bool expectedChallengerWon = dispute.votesFor >= 2;
         assertEq(dispute.challengerWon, expectedChallengerWon);
     }
 }

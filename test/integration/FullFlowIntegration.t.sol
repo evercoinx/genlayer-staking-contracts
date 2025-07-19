@@ -497,12 +497,15 @@ contract FullFlowIntegrationTest is Test {
         vm.prank(validator3);
         uint256 disputeId = disputeResolver.createDispute(proposalId, 200e18);
         
-        // 3. Vote for challenger
+        // 3. Vote for challenger - need 3 votes out of 5 (>= 50%)
         vm.prank(validator1);
         disputeResolver.voteOnDispute(disputeId, true, createDisputeVoteSignature(VALIDATOR1_PRIVATE_KEY, disputeId, true));
         
         vm.prank(validator2);
         disputeResolver.voteOnDispute(disputeId, true, createDisputeVoteSignature(VALIDATOR2_PRIVATE_KEY, disputeId, true));
+        
+        vm.prank(validator4);
+        disputeResolver.voteOnDispute(disputeId, true, createDisputeVoteSignature(VALIDATOR4_PRIVATE_KEY, disputeId, true));
         
         // 4. Resolve dispute
         vm.warp(block.timestamp + DISPUTE_VOTING_PERIOD + 1);

@@ -30,7 +30,7 @@ optimizer-runs = 1
 out = "out"
 sparse_mode = true
 test = "test"
-via_ir = false
+via_ir = true
 
 [profile.default.fmt]
 bracket_spacing = true

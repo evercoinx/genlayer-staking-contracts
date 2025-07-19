@@ -340,13 +340,16 @@ contract EdgeCaseIntegrationTest is Test {
         console2.log("Created 2 disputes on same proposal");
         
         // Different outcomes for each dispute
-        // Dispute 1: Challenger wins
+        // Dispute 1: Challenger wins - need 2 votes out of 3 (>= 50%)
         vm.prank(validator3);
         disputeResolver.voteOnDispute(disputeId1, true, createDisputeVoteSignature(VALIDATOR3_PRIVATE_KEY, disputeId1, true));
         
-        // Dispute 2: Proposer wins
-        vm.prank(validator2);
-        disputeResolver.voteOnDispute(disputeId2, false, createDisputeVoteSignature(VALIDATOR2_PRIVATE_KEY, disputeId2, false));
+        vm.prank(validator1);
+        disputeResolver.voteOnDispute(disputeId1, true, createDisputeVoteSignature(VALIDATOR1_PRIVATE_KEY, disputeId1, true));
+        
+        // Dispute 2: Proposer wins - only 1 vote for challenge (< 50%)
+        vm.prank(validator1);
+        disputeResolver.voteOnDispute(disputeId2, true, createDisputeVoteSignature(VALIDATOR1_PRIVATE_KEY, disputeId2, true));
         
         // Resolve both disputes
         vm.warp(block.timestamp + DISPUTE_VOTING_PERIOD + 1);
@@ -354,12 +357,12 @@ contract EdgeCaseIntegrationTest is Test {
         disputeResolver.resolveDispute(disputeId1);
         IDisputeResolver.Dispute memory dispute1 = disputeResolver.getDispute(disputeId1);
         assertTrue(dispute1.challengerWon);
-        console2.log("Dispute 1: Challenger won");
+        console2.log("Dispute 1: Challenger won (2/3 votes)");
         
         disputeResolver.resolveDispute(disputeId2);
         IDisputeResolver.Dispute memory dispute2 = disputeResolver.getDispute(disputeId2);
         assertFalse(dispute2.challengerWon);
-        console2.log("Dispute 2: Proposer won");
+        console2.log("Dispute 2: Proposer won (1/3 votes)");
         
         // Check disputes array
         uint256[] memory disputes = disputeResolver.getDisputesByProposal(proposalId);
@@ -470,13 +473,20 @@ contract EdgeCaseIntegrationTest is Test {
         IValidatorRegistry.ValidatorInfo memory infoBefore = validatorRegistry.getValidatorInfo(validator1);
         console2.log("Validator1 stake before slashing:", infoBefore.stakedAmount / 1e18);
         
-        // Vote on all disputes first
+        // Vote on all disputes first - need 2 votes out of 3 for challenger to win
         for (uint256 i = 0; i < 3; i++) {
             vm.prank(validator3);
             disputeResolver.voteOnDispute(
                 disputeIds[i], 
                 true, 
                 createDisputeVoteSignature(VALIDATOR3_PRIVATE_KEY, disputeIds[i], true)
+            );
+            
+            vm.prank(validator2);
+            disputeResolver.voteOnDispute(
+                disputeIds[i], 
+                true, 
+                createDisputeVoteSignature(VALIDATOR2_PRIVATE_KEY, disputeIds[i], true)
             );
         }
         
