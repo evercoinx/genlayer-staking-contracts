@@ -18,7 +18,7 @@ contract ValidatorTest is Test {
     address public unauthorized;
 
     uint256 public constant MINIMUM_STAKE = 1000e18;
-    uint256 public constant BONDING_PERIOD = 7 days;
+    uint256 public constant BONDING_PERIOD = 1; // 1 block per PRD
 
     function setUp() public {
         validatorAddress = makeAddr("validator");
@@ -247,7 +247,7 @@ contract ValidatorTest is Test {
         vm.stopPrank();
 
         // Fast forward bonding period
-        vm.warp(block.timestamp + BONDING_PERIOD + 1);
+        vm.roll(block.number + BONDING_PERIOD);
 
         assertTrue(validator.canCompleteUnstake());
 
@@ -281,7 +281,7 @@ contract ValidatorTest is Test {
         vm.stopPrank();
 
         // Fast forward bonding period
-        vm.warp(block.timestamp + BONDING_PERIOD + 1);
+        vm.roll(block.number + BONDING_PERIOD);
 
         uint256 balanceBefore = gltToken.balanceOf(validatorAddress);
 

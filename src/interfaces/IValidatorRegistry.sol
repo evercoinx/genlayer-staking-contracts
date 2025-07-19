@@ -26,7 +26,7 @@ interface IValidatorRegistry {
         address validatorAddress;
         uint256 stakedAmount;
         ValidatorStatus status;
-        uint256 unstakeRequestTime;
+        uint256 unstakeRequestBlock;
         uint256 activationTime;
     }
 
@@ -49,9 +49,9 @@ interface IValidatorRegistry {
      * @dev Emitted when a validator requests to unstake.
      * @param validator The address of the validator.
      * @param unstakeAmount The amount to unstake.
-     * @param unstakeRequestTime The timestamp when unstaking was requested.
+     * @param unstakeRequestBlock The block number when unstaking was requested.
      */
-    event UnstakeRequested(address indexed validator, uint256 unstakeAmount, uint256 unstakeRequestTime);
+    event UnstakeRequested(address indexed validator, uint256 unstakeAmount, uint256 unstakeRequestBlock);
 
     /**
      * @dev Emitted when a validator completes unstaking.

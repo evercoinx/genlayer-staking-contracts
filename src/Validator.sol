@@ -21,9 +21,9 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
     uint256 public constant MINIMUM_STAKE = 1000e18;
 
     /**
-     * @dev Bonding period for unstaking (7 days).
+     * @dev Bonding period for unstaking (1 block for simplicity per PRD).
      */
-    uint256 public constant BONDING_PERIOD = 7 days;
+    uint256 public constant BONDING_PERIOD = 1;
 
     /**
      * @dev The GLT token used for staking.
@@ -51,9 +51,9 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
     ValidatorStatus public status;
 
     /**
-     * @dev Timestamp when unstaking was requested.
+     * @dev Block number when unstaking was requested.
      */
-    uint256 public unstakeRequestTime;
+    uint256 public unstakeRequestBlock;
 
     /**
      * @dev Timestamp when the validator was activated.
@@ -168,14 +168,14 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
         }
 
         unstakeAmount = amount;
-        unstakeRequestTime = block.timestamp;
+        unstakeRequestBlock = block.number;
 
         // If unstaking everything, mark as unstaking
         if (remainingStake == 0) {
             status = ValidatorStatus.Unstaking;
         }
 
-        emit UnstakeRequested(amount, block.timestamp);
+        emit UnstakeRequested(amount, block.number);
     }
 
     /**
@@ -185,7 +185,7 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
         if (unstakeAmount == 0) {
             revert ZeroAmount();
         }
-        if (block.timestamp < unstakeRequestTime + BONDING_PERIOD) {
+        if (block.number < unstakeRequestBlock + BONDING_PERIOD) {
             revert BondingPeriodNotMet();
         }
 
@@ -245,7 +245,7 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
             validatorAddress: validatorAddress,
             stakedAmount: stakedAmount,
             status: status,
-            unstakeRequestTime: unstakeRequestTime,
+            unstakeRequestTime: unstakeRequestBlock,
             activationTime: activationTime,
             metadata: metadata
         });
@@ -283,6 +283,6 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
      * @inheritdoc IValidator
      */
     function canCompleteUnstake() external view returns (bool) {
-        return unstakeAmount > 0 && block.timestamp >= unstakeRequestTime + BONDING_PERIOD;
+        return unstakeAmount > 0 && block.number >= unstakeRequestBlock + BONDING_PERIOD;
     }
 }

@@ -437,8 +437,8 @@ contract FullFlowIntegrationTest is Test {
         assertEq(uint8(info.status), uint8(IValidatorRegistry.ValidatorStatus.Unstaking));
         console2.log("Validator requested full unstake");
         
-        // 4. Wait bonding period
-        vm.warp(block.timestamp + 7 days + 1);
+        // 4. Wait bonding period (1 block per PRD)
+        vm.roll(block.number + 1);
         
         // 5. Complete unstake
         uint256 balanceBefore = gltToken.balanceOf(newValidator);

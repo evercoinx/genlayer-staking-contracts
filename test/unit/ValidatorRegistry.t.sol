@@ -19,7 +19,7 @@ contract ValidatorRegistryTest is Test {
     address public validator3;
 
     uint256 public constant MINIMUM_STAKE = 1000e18;
-    uint256 public constant BONDING_PERIOD = 7 days;
+    uint256 public constant BONDING_PERIOD = 1; // 1 block per PRD
     uint256 public constant MAX_VALIDATORS = 100;
 
     event ValidatorRegistered(address indexed validator, uint256 stakedAmount);
@@ -231,8 +231,8 @@ contract ValidatorRegistryTest is Test {
         registry.requestUnstake(initialStake);
         vm.stopPrank();
 
-        // Fast forward bonding period
-        vm.warp(block.timestamp + BONDING_PERIOD + 1);
+        // Fast forward bonding period (1 block)
+        vm.roll(block.number + BONDING_PERIOD);
 
         uint256 balanceBefore = gltToken.balanceOf(validator1);
 

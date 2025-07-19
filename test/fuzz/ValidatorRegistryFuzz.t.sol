@@ -199,7 +199,7 @@ contract ValidatorRegistryFuzzTest is Test {
         }
         
         // Complete unstake after bonding period
-        vm.warp(block.timestamp + 7 days + 1);
+        vm.roll(block.number + 1); // 1 block bonding period per PRD
         
         uint256 balanceBefore = gltToken.balanceOf(validator);
         uint256 proxyBalanceBefore = gltToken.balanceOf(proxyAddress);

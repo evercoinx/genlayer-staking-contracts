@@ -117,7 +117,7 @@ All validator actions require ECDSA signatures with specific message formats:
 ### Staking Parameters
 - Minimum validator stake: 1000 GLT
 - Maximum active validators: 100
-- Unbonding period: 7 days
+- Unbonding period: 1 block
 - Slash percentage: 10%
 
 ### Governance Parameters

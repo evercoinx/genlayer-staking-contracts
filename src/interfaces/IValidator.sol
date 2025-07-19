@@ -23,7 +23,7 @@ interface IValidator {
         address validatorAddress;
         uint256 stakedAmount;
         ValidatorStatus status;
-        uint256 unstakeRequestTime;
+        uint256 unstakeRequestTime; // Actually stores block number now
         uint256 activationTime;
         string metadata;
     }
@@ -38,9 +38,9 @@ interface IValidator {
     /**
      * @dev Emitted when a validator requests to unstake.
      * @param amount The amount to unstake.
-     * @param requestTime The timestamp when unstaking was requested.
+     * @param requestBlock The block number when unstaking was requested.
      */
-    event UnstakeRequested(uint256 amount, uint256 requestTime);
+    event UnstakeRequested(uint256 amount, uint256 requestBlock);
 
     /**
      * @dev Emitted when a validator completes unstaking.

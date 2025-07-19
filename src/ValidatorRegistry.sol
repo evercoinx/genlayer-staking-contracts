@@ -34,9 +34,9 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     uint256 public constant MINIMUM_STAKE = 1000e18;
 
     /**
-     * @dev Bonding period for unstaking (7 days).
+     * @dev Bonding period for unstaking (1 block for simplicity per PRD).
      */
-    uint256 public constant BONDING_PERIOD = 7 days;
+    uint256 public constant BONDING_PERIOD = 1;
 
     /**
      * @dev Maximum number of active validators.
@@ -232,7 +232,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         // Call the validator proxy to request unstake
         validator.requestUnstake(unstakeAmount);
 
-        emit UnstakeRequested(msg.sender, unstakeAmount, block.timestamp);
+        emit UnstakeRequested(msg.sender, unstakeAmount, block.number);
 
         // Update active validator set if fully unstaking
         if (remainingStake == 0) {
@@ -360,7 +360,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
             validatorAddress: info.validatorAddress,
             stakedAmount: info.stakedAmount,
             status: ValidatorStatus(uint8(info.status)),
-            unstakeRequestTime: info.unstakeRequestTime,
+            unstakeRequestBlock: info.unstakeRequestTime, // Now stores block number
             activationTime: info.activationTime
         });
     }
