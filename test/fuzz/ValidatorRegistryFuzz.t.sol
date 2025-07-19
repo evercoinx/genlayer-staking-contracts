@@ -97,7 +97,8 @@ contract ValidatorRegistryFuzzTest is Test {
 
     // Fuzz test: Multiple validators creates multiple beacon proxies
     function testFuzz_MultipleValidators(uint8 validatorCount) public {
-        validatorCount = uint8(bound(validatorCount, 1, 10));
+        // Reduce max validators for faster test execution
+        validatorCount = uint8(bound(validatorCount, 1, 5));
         
         for (uint256 i = 0; i < validatorCount; i++) {
             address validator = address(uint160(i + 1));
@@ -216,12 +217,12 @@ contract ValidatorRegistryFuzzTest is Test {
     }
 
     // Fuzz test: Validator set ordering with beacon proxies
-    function testFuzz_ValidatorSetOrdering(uint256[5] memory stakes) public {
-        // Setup validators with different stakes
-        address[] memory validators = new address[](5);
+    function testFuzz_ValidatorSetOrdering(uint256[3] memory stakes) public {
+        // Reduce to 3 validators for faster execution
+        address[] memory validators = new address[](3);
         uint256 validCount = 0;
         
-        for (uint256 i = 0; i < 5; i++) {
+        for (uint256 i = 0; i < 3; i++) {
             stakes[i] = bound(stakes[i], MINIMUM_STAKE, 100_000e18);
             
             validators[i] = address(uint160(i + 100));

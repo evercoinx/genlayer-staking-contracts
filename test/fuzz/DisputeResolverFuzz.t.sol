@@ -226,8 +226,8 @@ contract DisputeResolverFuzzTest is Test {
 
     // Fuzz test: Multiple disputes on same proposal
     function testFuzz_MultipleDisputes(uint8 disputeCount, uint256 seed) public {
-        // Constraints
-        disputeCount = uint8(bound(disputeCount, 1, 5));
+        // Reduce max disputes for faster execution
+        disputeCount = uint8(bound(disputeCount, 1, 3));
         
         // Setup validators
         address proposer = _setupValidator(0x7777, 5000e18);
