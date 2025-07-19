@@ -461,4 +461,148 @@ contract ValidatorRegistryTest is Test {
         assertEq(info.stakedAmount, initialStake + additionalStake);
         assertEq(registry.getTotalStake(), initialStake + additionalStake);
     }
+
+    function test_GetTopValidators() public {
+        // Register multiple validators with different stakes
+        address[] memory validators = new address[](7);
+        uint256[] memory stakes = new uint256[](7);
+        
+        for (uint256 i = 0; i < 7; i++) {
+            validators[i] = makeAddr(string(abi.encodePacked("validator", i)));
+            stakes[i] = MINIMUM_STAKE + (i * 100e18);
+            gltToken.mint(validators[i], stakes[i]);
+            
+            vm.startPrank(validators[i]);
+            gltToken.approve(address(registry), stakes[i]);
+            registry.registerValidator(stakes[i]);
+            vm.stopPrank();
+        }
+        
+        // Check active validator count (should be limited to activeValidatorLimit = 5)
+        address[] memory activeValidators = registry.getActiveValidators();
+        assertEq(activeValidators.length, 5); // Only 5 active due to limit
+        
+        // Get top 5 validators
+        address[] memory top5 = registry.getTopValidators(5);
+        assertEq(top5.length, 5);
+        
+        // Verify they are sorted by stake (highest first)
+        for (uint256 i = 0; i < 4; i++) {
+            IValidator.ValidatorInfo memory info1 = registry.getValidatorInfoWithMetadata(top5[i]);
+            IValidator.ValidatorInfo memory info2 = registry.getValidatorInfoWithMetadata(top5[i + 1]);
+            assertGe(info1.stakedAmount, info2.stakedAmount);
+        }
+        
+        // Get top 10 validators (should return only the number of active validators)
+        address[] memory top10 = registry.getTopValidators(10);
+        // Should return actual count of active validators, not necessarily all registered
+        assertLe(top10.length, 7); // At most 7, but could be less if some don't meet requirements
+        
+        // Get top 3 validators
+        address[] memory top3 = registry.getTopValidators(3);
+        assertEq(top3.length, 3);
+        
+        // Verify they are the highest staked validators
+        for (uint256 i = 0; i < top3.length; i++) {
+            bool found = false;
+            for (uint256 j = 0; j < validators.length; j++) {
+                if (top3[i] == validators[j]) {
+                    found = true;
+                    break;
+                }
+            }
+            assertTrue(found, "Top validator should be from our registered validators");
+        }
+    }
+
+    function test_IsTopValidator() public {
+        // Register 5 validators with different stakes
+        address[] memory validators = new address[](5);
+        uint256[] memory stakes = new uint256[](5);
+        stakes[0] = 5000e18; // Highest
+        stakes[1] = 4000e18;
+        stakes[2] = 3000e18;
+        stakes[3] = 2000e18;
+        stakes[4] = 1000e18; // Lowest
+        
+        for (uint256 i = 0; i < 5; i++) {
+            validators[i] = makeAddr(string(abi.encodePacked("validator", i)));
+            gltToken.mint(validators[i], stakes[i]);
+            
+            vm.startPrank(validators[i]);
+            gltToken.approve(address(registry), stakes[i]);
+            registry.registerValidator(stakes[i]);
+            vm.stopPrank();
+        }
+        
+        // Check top 3 validators
+        assertTrue(registry.isTopValidator(validators[0], 3)); // 5000e18 - should be in top 3
+        assertTrue(registry.isTopValidator(validators[1], 3)); // 4000e18 - should be in top 3
+        assertTrue(registry.isTopValidator(validators[2], 3)); // 3000e18 - should be in top 3
+        assertFalse(registry.isTopValidator(validators[3], 3)); // 2000e18 - not in top 3
+        assertFalse(registry.isTopValidator(validators[4], 3)); // 1000e18 - not in top 3
+        
+        // Check top 5 validators (all should be included)
+        for (uint256 i = 0; i < 5; i++) {
+            assertTrue(registry.isTopValidator(validators[i], 5));
+        }
+        
+        // Check top 1 validator
+        assertTrue(registry.isTopValidator(validators[0], 1));
+        for (uint256 i = 1; i < 5; i++) {
+            assertFalse(registry.isTopValidator(validators[i], 1));
+        }
+    }
+
+    function test_RevertWhen_GetTopValidators_InvalidCount() public {
+        vm.expectRevert("ValidatorRegistry: invalid count");
+        registry.getTopValidators(0);
+    }
+
+    function test_RevertWhen_IsTopValidator_InvalidCount() public {
+        vm.expectRevert("ValidatorRegistry: invalid count");
+        registry.isTopValidator(validator1, 0);
+    }
+
+    function test_TopValidators_UpdateOnStakeChanges() public {
+        // Register 3 validators
+        uint256 stake1 = 3000e18;
+        uint256 stake2 = 2000e18;
+        uint256 stake3 = 1000e18;
+        
+        vm.prank(validator1);
+        gltToken.approve(address(registry), stake1);
+        vm.prank(validator1);
+        registry.registerValidator(stake1);
+        
+        vm.prank(validator2);
+        gltToken.approve(address(registry), stake2);
+        vm.prank(validator2);
+        registry.registerValidator(stake2);
+        
+        vm.prank(validator3);
+        gltToken.approve(address(registry), stake3);
+        vm.prank(validator3);
+        registry.registerValidator(stake3);
+        
+        // Initially validator1 should be top
+        address[] memory top1 = registry.getTopValidators(1);
+        assertEq(top1[0], validator1);
+        
+        // Validator3 increases stake to become top validator
+        gltToken.mint(validator3, 3000e18);
+        vm.prank(validator3);
+        gltToken.approve(address(registry), 3000e18);
+        vm.prank(validator3);
+        registry.increaseStake(3000e18); // Now has 4000e18 total
+        
+        // Validator3 should now be top
+        top1 = registry.getTopValidators(1);
+        assertEq(top1[0], validator3);
+        
+        // Check top 2
+        address[] memory top2 = registry.getTopValidators(2);
+        assertEq(top2[0], validator3); // 4000e18
+        assertEq(top2[1], validator1); // 3000e18
+    }
 }

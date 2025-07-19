@@ -66,6 +66,9 @@ contract GasOptimizationIntegrationTest is Test {
 
         // Set up roles
         validatorRegistry.setSlasher(address(disputeResolver));
+        
+        // Increase active validator limit for gas optimization tests
+        validatorRegistry.setActiveValidatorLimit(NUM_VALIDATORS);
 
         // Set up multiple validators
         for (uint256 i = 0; i < NUM_VALIDATORS; i++) {
@@ -74,7 +77,8 @@ contract GasOptimizationIntegrationTest is Test {
             address validator = vm.addr(privateKey);
             validators.push(validator);
             
-            uint256 stake = BASE_STAKE + (i * 100e18); // Varying stakes
+            // Higher stakes for lower indices to ensure they're active
+            uint256 stake = BASE_STAKE + ((NUM_VALIDATORS - i) * 100e18);
             setupValidator(validator, stake);
         }
     }

@@ -95,6 +95,13 @@ The system consists of 6 interconnected contracts that implement a complete gove
 5. If dispute created → DisputeResolver handles with stake at risk
 6. Resolution updates validator stakes and proposal state
 
+**Top-N Validator Selection:**
+- ValidatorRegistry maintains sorted list of validators by stake amount
+- `getTopValidators(n)` returns the top N validators (e.g., top 5 for execution)
+- `isTopValidator(address, n)` checks if a validator is in the top N set
+- Active validator set automatically sorted on stake changes
+- Enables dPoS-like selection of top validators for specific tasks
+
 **Signature Verification:**
 All validator actions require ECDSA signatures with specific message formats:
 - Consensus votes: `"GenLayerConsensusVote" + roundId + validator + support + contractAddress + chainId`
@@ -119,6 +126,7 @@ All validator actions require ECDSA signatures with specific message formats:
 - Consensus quorum: 60% (3/5 validators)
 - Dispute voting period: 50 blocks
 - Minimum challenge stake: 100 GLT
+- Active validator limit: 5 (configurable via setActiveValidatorLimit)
 
 ### Token Parameters
 - GLT max supply: 1 billion tokens

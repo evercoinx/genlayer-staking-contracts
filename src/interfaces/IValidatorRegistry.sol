@@ -246,4 +246,31 @@ interface IValidatorRegistry {
      * @param newImplementation The new validator implementation address.
      */
     function upgradeValidatorImplementation(address newImplementation) external;
+
+    /**
+     * @dev Returns the top N validators based on stake amount.
+     * @param n The number of top validators to return.
+     * @return topValidators The addresses of the top N validators.
+     */
+    function getTopValidators(uint256 n) external view returns (address[] memory topValidators);
+
+    /**
+     * @dev Checks if an address is in the top N validators.
+     * @param validator The validator address to check.
+     * @param n The size of the top validator set.
+     * @return isTop True if the validator is in the top N.
+     */
+    function isTopValidator(address validator, uint256 n) external view returns (bool isTop);
+
+    /**
+     * @dev Sets the number of active validators. Only callable by owner.
+     * @param newLimit The new active validator limit (must be between 1 and MAX_VALIDATORS).
+     */
+    function setActiveValidatorLimit(uint256 newLimit) external;
+
+    /**
+     * @dev Returns the current active validator limit.
+     * @return The active validator limit.
+     */
+    function getActiveValidatorLimit() external view returns (uint256);
 }

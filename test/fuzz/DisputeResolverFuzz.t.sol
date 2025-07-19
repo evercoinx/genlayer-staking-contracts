@@ -122,41 +122,57 @@ contract DisputeResolverFuzzTest is Test {
         uint8 votingValidators,
         uint256 votingPattern
     ) public {
-        // Constraints
-        totalValidators = uint8(bound(totalValidators, 3, 10));
+        // Constraints - limit to activeValidatorLimit (5)
+        uint256 activeLimit = validatorRegistry.getActiveValidatorLimit();
+        totalValidators = uint8(bound(totalValidators, 3, activeLimit));
         votingValidators = uint8(bound(votingValidators, 1, totalValidators));
         
-        // Setup validators
+        // Setup validators with decreasing stakes to ensure order
         uint256[] memory privateKeys = new uint256[](totalValidators);
         address[] memory validators = new address[](totalValidators);
         
         for (uint256 i = 0; i < totalValidators; i++) {
             privateKeys[i] = 0x3000 + i;
-            validators[i] = _setupValidator(privateKeys[i], MINIMUM_STAKE + (i * 100e18));
+            // Higher stakes for lower indices to ensure they're active
+            validators[i] = _setupValidator(privateKeys[i], MINIMUM_STAKE + ((totalValidators - i) * 100e18));
         }
         
-        // Create proposal and dispute
-        vm.prank(validators[0]);
+        // Get actual active validators
+        address[] memory activeValidators = validatorRegistry.getActiveValidators();
+        require(activeValidators.length >= 2, "Need at least 2 active validators");
+        
+        // Create proposal and dispute using active validators
+        vm.prank(activeValidators[0]);
         uint256 proposalId = proposalManager.createProposal(keccak256("pattern"), "Pattern Test");
         
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
         
-        vm.prank(validators[1]);
+        vm.prank(activeValidators[1]);
         uint256 disputeId = disputeResolver.createDispute(proposalId, 200e18);
         
         // Vote based on pattern
         uint256 votesFor = 0;
         uint256 votesAgainst = 0;
         
-        for (uint256 i = 2; i < 2 + votingValidators && i < totalValidators; i++) {
+        for (uint256 i = 2; i < 2 + votingValidators && i < activeValidators.length; i++) {
             bool supportChallenge = ((votingPattern >> (i - 2)) & 1) == 1;
             
-            vm.prank(validators[i]);
+            // Find the private key for this active validator
+            uint256 privateKey = 0;
+            for (uint256 j = 0; j < validators.length; j++) {
+                if (validators[j] == activeValidators[i]) {
+                    privateKey = privateKeys[j];
+                    break;
+                }
+            }
+            require(privateKey != 0, "Private key not found");
+            
+            vm.prank(activeValidators[i]);
             disputeResolver.voteOnDispute(
                 disputeId,
                 supportChallenge,
-                _createDisputeVoteSignature(privateKeys[i], disputeId, supportChallenge)
+                _createDisputeVoteSignature(privateKey, disputeId, supportChallenge)
             );
             
             if (supportChallenge) votesFor++;

@@ -44,6 +44,11 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     uint256 public constant MAX_VALIDATORS = 100;
 
     /**
+     * @dev Number of top validators to select for consensus (configurable).
+     */
+    uint256 public activeValidatorLimit = 5;
+
+    /**
      * @dev Slash percentage (10%).
      */
     uint256 public constant SLASH_PERCENTAGE = 10;
@@ -120,6 +125,16 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
             revert ZeroAddress();
         }
         slasher = newSlasher;
+    }
+
+    /**
+     * @dev Sets the number of active validators. Only callable by owner.
+     * @param newLimit The new active validator limit (must be between 1 and MAX_VALIDATORS).
+     */
+    function setActiveValidatorLimit(uint256 newLimit) external onlyOwner {
+        require(newLimit > 0 && newLimit <= MAX_VALIDATORS, "Invalid validator limit");
+        activeValidatorLimit = newLimit;
+        _updateActiveValidatorSet();
     }
 
     /**
@@ -323,8 +338,8 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
             }
         }
 
-        // Select top validators up to MAX_VALIDATORS
-        uint256 activeCount = eligibleCount < MAX_VALIDATORS ? eligibleCount : MAX_VALIDATORS;
+        // Select top validators up to activeValidatorLimit
+        uint256 activeCount = eligibleCount < activeValidatorLimit ? eligibleCount : activeValidatorLimit;
         delete activeValidators;
         for (uint256 i = 0; i < activeCount; i++) {
             activeValidators.push(eligibleValidators[i]);
@@ -424,6 +439,14 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     }
 
     /**
+     * @dev Returns the current active validator limit.
+     * @return The active validator limit.
+     */
+    function getActiveValidatorLimit() external view returns (uint256) {
+        return activeValidatorLimit;
+    }
+
+    /**
      * @dev Returns the validator beacon address.
      * @return The beacon address.
      */
@@ -437,5 +460,40 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      */
     function upgradeValidatorImplementation(address newImplementation) external onlyOwner {
         validatorBeacon.upgradeImplementation(newImplementation);
+    }
+
+    /**
+     * @dev Returns the top N validators based on stake amount.
+     * @param n The number of top validators to return.
+     * @return topValidators The addresses of the top N validators.
+     */
+    function getTopValidators(uint256 n) external view returns (address[] memory topValidators) {
+        require(n > 0, "ValidatorRegistry: invalid count");
+        
+        uint256 count = n < activeValidators.length ? n : activeValidators.length;
+        topValidators = new address[](count);
+        
+        for (uint256 i = 0; i < count; i++) {
+            topValidators[i] = activeValidators[i];
+        }
+    }
+
+    /**
+     * @dev Checks if an address is in the top N validators.
+     * @param validator The validator address to check.
+     * @param n The size of the top validator set.
+     * @return isTop True if the validator is in the top N.
+     */
+    function isTopValidator(address validator, uint256 n) external view returns (bool isTop) {
+        require(n > 0, "ValidatorRegistry: invalid count");
+        
+        uint256 count = n < activeValidators.length ? n : activeValidators.length;
+        
+        for (uint256 i = 0; i < count; i++) {
+            if (activeValidators[i] == validator) {
+                return true;
+            }
+        }
+        return false;
     }
 }

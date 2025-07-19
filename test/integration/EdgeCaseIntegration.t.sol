@@ -184,8 +184,12 @@ contract EdgeCaseIntegrationTest is Test {
     function test_EdgeCase_MaximumValidatorsReached() public {
         console2.log("=== Edge Case: Maximum Validators Reached ===");
         
-        // Register validators up to MAX_VALIDATORS - 3 (we already have 3)
-        for (uint256 i = 4; i <= MAX_VALIDATORS; i++) {
+        // Get current active validator limit
+        uint256 activeValidatorLimit = validatorRegistry.getActiveValidatorLimit();
+        console2.log("Active validator limit:", activeValidatorLimit);
+        
+        // Register validators up to activeValidatorLimit (we already have 3)
+        for (uint256 i = 4; i <= activeValidatorLimit; i++) {
             address newValidator = address(uint160(i * 1000));
             gltToken.mint(newValidator, 2000e18);
             
@@ -196,8 +200,8 @@ contract EdgeCaseIntegrationTest is Test {
         }
         
         address[] memory activeValidators = validatorRegistry.getActiveValidators();
-        assertEq(activeValidators.length, MAX_VALIDATORS);
-        console2.log("Maximum validators reached:", MAX_VALIDATORS);
+        assertEq(activeValidators.length, activeValidatorLimit);
+        console2.log("Maximum active validators reached:", activeValidatorLimit);
         
         // Try to add one more with higher stake
         address extraValidator = address(0xEEEE);
@@ -210,7 +214,7 @@ contract EdgeCaseIntegrationTest is Test {
         
         // Check that lowest staked validator was replaced
         activeValidators = validatorRegistry.getActiveValidators();
-        assertEq(activeValidators.length, MAX_VALIDATORS);
+        assertEq(activeValidators.length, activeValidatorLimit);
         assertTrue(validatorRegistry.isActiveValidator(extraValidator));
         console2.log("Higher staked validator replaced lowest staked one");
     }

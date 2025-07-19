@@ -74,6 +74,10 @@ contract Deploy is Script {
         // 8. Update slasher role in ValidatorRegistry to DisputeResolver
         validatorRegistry.setSlasher(address(disputeResolver));
         console2.log("Updated ValidatorRegistry slasher to DisputeResolver");
+        
+        // 9. Set active validator limit to 5 as per PRD
+        validatorRegistry.setActiveValidatorLimit(5);
+        console2.log("Set active validator limit to 5 (top-N selection)");
 
         vm.stopBroadcast();
 
@@ -94,6 +98,8 @@ contract Deploy is Script {
         console2.log("- Validator stake and metadata are isolated per validator");
         console2.log("- Upgradeable validator logic through beacon pattern");
         console2.log("- Enhanced metadata support for validator information");
+        console2.log("- Top-N validator selection for execution (default: 5)");
+        console2.log("- Active validator limit:", validatorRegistry.getActiveValidatorLimit());
         console2.log("=====================================");
     }
 }

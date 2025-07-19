@@ -84,46 +84,62 @@ contract ConsensusEngineFuzzTest is Test {
 
     // Fuzz test: Voting with various validator counts
     function testFuzz_VotingWithValidatorCounts(uint8 validatorCount, uint8 votingCount) public {
-        // Constraints
-        vm.assume(validatorCount >= 3 && validatorCount <= 20);
+        // Constraints - limit to activeValidatorLimit (5)
+        uint256 activeLimit = validatorRegistry.getActiveValidatorLimit();
+        vm.assume(validatorCount >= 3 && validatorCount <= activeLimit);
         vm.assume(votingCount <= validatorCount);
         
-        // Setup validators
+        // Setup validators with decreasing stakes to ensure order
         uint256[] memory privateKeys = new uint256[](validatorCount);
         address[] memory validators = new address[](validatorCount);
         
         for (uint256 i = 0; i < validatorCount; i++) {
             privateKeys[i] = 0x1000 + i;
-            validators[i] = _setupValidator(privateKeys[i], MINIMUM_STAKE + (i * 100e18));
+            // Higher stakes for lower indices to ensure they're active
+            validators[i] = _setupValidator(privateKeys[i], MINIMUM_STAKE + ((validatorCount - i) * 100e18));
         }
         
-        // Create proposal and initiate consensus
-        vm.prank(validators[0]);
+        // Get actual active validators
+        address[] memory activeValidators = validatorRegistry.getActiveValidators();
+        require(activeValidators.length >= 2, "Need at least 2 active validators");
+        
+        // Create proposal using first active validator
+        vm.prank(activeValidators[0]);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
         
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
         
-        vm.prank(validators[1]);
+        vm.prank(activeValidators[1]);
         proposalManager.challengeProposal(proposalId);
         
         vm.prank(consensusInitiatorRole);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
         
-        // Cast votes
+        // Cast votes using only active validators
         uint256 votesFor = 0;
         uint256 votesAgainst = 0;
         
-        for (uint256 i = 0; i < votingCount; i++) {
+        for (uint256 i = 0; i < votingCount && i < activeValidators.length; i++) {
             bool support = i % 2 == 0;
             if (support) votesFor++;
             else votesAgainst++;
             
-            vm.prank(validators[i]);
+            // Find the private key for this active validator
+            uint256 privateKey = 0;
+            for (uint256 j = 0; j < validators.length; j++) {
+                if (validators[j] == activeValidators[i]) {
+                    privateKey = privateKeys[j];
+                    break;
+                }
+            }
+            require(privateKey != 0, "Private key not found");
+            
+            vm.prank(activeValidators[i]);
             consensusEngine.castVote(
                 roundId,
                 support,
-                _createVoteSignature(privateKeys[i], roundId, support)
+                _createVoteSignature(privateKey, roundId, support)
             );
         }
         
@@ -187,24 +203,30 @@ contract ConsensusEngineFuzzTest is Test {
 
     // Fuzz test: Random voting patterns
     function testFuzz_RandomVotingPatterns(uint256 seed) public {
-        // Setup 10 validators
-        uint256 validatorCount = 10;
+        // Setup 5 validators (activeValidatorLimit)
+        uint256 activeLimit = validatorRegistry.getActiveValidatorLimit();
+        uint256 validatorCount = activeLimit;
         uint256[] memory privateKeys = new uint256[](validatorCount);
         address[] memory validators = new address[](validatorCount);
         
         for (uint256 i = 0; i < validatorCount; i++) {
             privateKeys[i] = 0x3000 + i;
-            validators[i] = _setupValidator(privateKeys[i], MINIMUM_STAKE + (i * 200e18));
+            // Higher stakes for lower indices to ensure they're active
+            validators[i] = _setupValidator(privateKeys[i], MINIMUM_STAKE + ((validatorCount - i) * 200e18));
         }
         
+        // Get actual active validators
+        address[] memory activeValidators = validatorRegistry.getActiveValidators();
+        require(activeValidators.length == validatorCount, "All validators should be active");
+        
         // Create proposal and initiate consensus
-        vm.prank(validators[0]);
+        vm.prank(activeValidators[0]);
         uint256 proposalId = proposalManager.createProposal(keccak256("pattern"), "Pattern Test");
         
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
         
-        vm.prank(validators[1]);
+        vm.prank(activeValidators[1]);
         proposalManager.challengeProposal(proposalId);
         
         vm.prank(consensusInitiatorRole);
@@ -220,11 +242,21 @@ contract ConsensusEngineFuzzTest is Test {
                 // Decide vote based on different bit
                 bool support = ((seed >> (i + 10)) & 1) == 1;
                 
-                vm.prank(validators[i]);
+                // Find the private key for this active validator
+                uint256 privateKey = 0;
+                for (uint256 j = 0; j < validators.length; j++) {
+                    if (validators[j] == activeValidators[i]) {
+                        privateKey = privateKeys[j];
+                        break;
+                    }
+                }
+                require(privateKey != 0, "Private key not found");
+                
+                vm.prank(activeValidators[i]);
                 consensusEngine.castVote(
                     roundId,
                     support,
-                    _createVoteSignature(privateKeys[i], roundId, support)
+                    _createVoteSignature(privateKey, roundId, support)
                 );
                 
                 if (support) votesFor++;
