@@ -17,10 +17,10 @@ import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/Mes
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /**
- * @title GasOptimizationIntegrationTest
- * @dev Integration tests focused on gas usage and optimization scenarios
+ * @title GasBenchmarks
+ * @dev Benchmarks for measuring gas usage across different system operations
  */
-contract GasOptimizationIntegrationTest is Test {
+contract GasBenchmarks is Test {
     using MessageHashUtils for bytes32;
     using ECDSA for bytes32;
 
@@ -135,9 +135,9 @@ contract GasOptimizationIntegrationTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    // Test: Gas cost for validator registration with many existing validators
-    function test_GasOptimization_ValidatorRegistrationScaling() public {
-        console2.log("=== Gas Optimization: Validator Registration Scaling ===");
+    // Benchmark: Gas cost for validator registration with many existing validators
+    function test_GasBenchmark_ValidatorRegistrationScaling() public {
+        console2.log("=== Gas Benchmark: Validator Registration Scaling ===");
         
         // Measure gas for registering additional validators
         uint256[] memory gasCosts = new uint256[](5);
@@ -168,9 +168,9 @@ contract GasOptimizationIntegrationTest is Test {
         assertTrue(maxIncrease < 150, "Gas costs increased too much"); // Max 50% increase
     }
 
-    // Test: Batch voting in consensus
-    function test_GasOptimization_BatchConsensusVoting() public {
-        console2.log("=== Gas Optimization: Batch Consensus Voting ===");
+    // Benchmark: Gas costs for consensus voting
+    function test_GasBenchmark_ConsensusVotingCosts() public {
+        console2.log("=== Gas Benchmark: Consensus Voting Costs ===");
         
         // Create and challenge proposal
         vm.prank(validators[0]);
@@ -213,9 +213,9 @@ contract GasOptimizationIntegrationTest is Test {
         console2.log("Gas variance:", ((maxGas - minGas) * 100) / minGas, "%");
     }
 
-    // Test: Gas cost for proposal creation with varying metadata sizes
-    function test_GasOptimization_ProposalMetadataSize() public {
-        console2.log("=== Gas Optimization: Proposal Metadata Size ===");
+    // Benchmark: Storage cost for proposal metadata of different sizes
+    function test_GasBenchmark_ProposalMetadataStorageCost() public {
+        console2.log("=== Gas Benchmark: Proposal Metadata Storage Cost ===");
         
         string[4] memory metadataSizes = [
             "Short",
@@ -245,9 +245,9 @@ contract GasOptimizationIntegrationTest is Test {
         console2.log("Approx gas per metadata byte:", gasDiff / byteDiff);
     }
 
-    // Test: Gas optimization for dispute resolution with many votes
-    function test_GasOptimization_DisputeResolutionScaling() public {
-        console2.log("=== Gas Optimization: Dispute Resolution Scaling ===");
+    // Benchmark: Gas costs for dispute resolution with many votes
+    function test_GasBenchmark_DisputeResolutionScaling() public {
+        console2.log("=== Gas Benchmark: Dispute Resolution Scaling ===");
         
         // Create proposal and dispute
         vm.prank(validators[0]);
@@ -289,9 +289,9 @@ contract GasOptimizationIntegrationTest is Test {
         console2.log("Dispute resolution gas:", resolutionGas);
     }
 
-    // Test: Validator set update gas costs
-    function test_GasOptimization_ValidatorSetUpdates() public {
-        console2.log("=== Gas Optimization: Validator Set Updates ===");
+    // Benchmark: Gas costs for different validator set operations
+    function test_GasBenchmark_ValidatorSetOperationCosts() public {
+        console2.log("=== Gas Benchmark: Validator Set Operation Costs ===");
         
         // Measure gas for different update scenarios
         
@@ -323,9 +323,9 @@ contract GasOptimizationIntegrationTest is Test {
         console2.log("Manual validator set update gas:", gasManualUpdate);
     }
 
-    // Test: Optimal voting patterns for gas efficiency
-    function test_GasOptimization_OptimalVotingPatterns() public {
-        console2.log("=== Gas Optimization: Optimal Voting Patterns ===");
+    // Benchmark: Gas cost comparison for different voting patterns
+    function test_GasBenchmark_VotingPatternComparison() public {
+        console2.log("=== Gas Benchmark: Voting Pattern Comparison ===");
         
         // Create multiple proposals to test different voting patterns
         uint256[] memory proposalIds = new uint256[](3);
@@ -397,36 +397,5 @@ contract GasOptimizationIntegrationTest is Test {
         console2.log("\nGas comparison:");
         console2.log("Pattern 2 efficiency vs unanimous:", (totalGas2 * 100) / totalGas1, "%");
         console2.log("Pattern 3 efficiency vs unanimous:", (totalGas3 * 100) / totalGas1, "%");
-    }
-
-    // Test: Storage slot optimization verification
-    function test_GasOptimization_StorageSlotPacking() public pure {
-        console2.log("=== Gas Optimization: Storage Slot Packing ===");
-        
-        // This test verifies that structs are properly packed
-        // ValidatorInfo struct should pack efficiently
-        console2.log("ValidatorInfo struct size check:");
-        console2.log("- address: 20 bytes");
-        console2.log("- uint256: 32 bytes"); 
-        console2.log("- enum: 1 byte");
-        console2.log("- uint256: 32 bytes");
-        console2.log("- uint256: 32 bytes");
-        console2.log("Total: 117 bytes = 4 slots (with padding)");
-        
-        // Proposal struct packing
-        console2.log("\nProposal struct size check:");
-        console2.log("- uint256: 32 bytes");
-        console2.log("- address: 20 bytes");
-        console2.log("- bytes32: 32 bytes");
-        console2.log("- string: 32+ bytes (dynamic)");
-        console2.log("- enum: 1 byte");
-        console2.log("- uint256: 32 bytes");
-        console2.log("- uint256: 32 bytes");
-        console2.log("- uint256: 32 bytes");
-        console2.log("- bool: 1 byte");
-        console2.log("Efficiently packed in minimum slots");
-        
-        // Dispute struct packing
-        console2.log("\nDispute struct efficiency verified through storage layout");
     }
 }
