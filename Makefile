@@ -36,15 +36,15 @@ gas:
 
 deploy-localhost: cleanup-localhost
 	@echo "Deploying to localhost network"
-	@make deploy-all RPC_URL=http://127.0.0.1:8545 LOCAL_DEPLOY=1
+	@make deploy-genlayer RPC_URL=http://127.0.0.1:8545 LOCAL_DEPLOY=1
 
 deploy-base-sepolia:
 	@echo "Deploying to base sepolia network"
-	@make deploy-all RPC_URL=https://base-sepolia.g.alchemy.com/v2/$(ALCHEMY_API_KEY)
+	@make deploy-genlayer RPC_URL=https://base-sepolia.g.alchemy.com/v2/$(ALCHEMY_API_KEY)
 
 deploy-base:
 	@echo "Deploying to base network"
-	@make deploy-all RPC_URL=https://base.g.alchemy.com/v2/$(ALCHEMY_API_KEY)
+	@make deploy-genlayer RPC_URL=https://base.g.alchemy.com/v2/$(ALCHEMY_API_KEY)
 
 deploy-genlayer:
 	@forge script script/Deploy.s.sol:Deploy \
