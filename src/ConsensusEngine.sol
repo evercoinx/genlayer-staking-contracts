@@ -77,7 +77,29 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
      * @dev Modifier to restrict functions to consensus initiator.
      */
     modifier onlyConsensusInitiator() {
-        require(msg.sender == consensusInitiator, CallerNotConsensusInitiator());
+        if (msg.sender != consensusInitiator) {
+            revert CallerNotConsensusInitiator();
+        }
+        _;
+    }
+
+    /**
+     * @dev Modifier to validate round exists.
+     */
+    modifier roundExists(uint256 roundId) {
+        if (consensusRounds[roundId].proposalId == 0) {
+            revert RoundNotFound();
+        }
+        _;
+    }
+
+    /**
+     * @dev Modifier to validate round is not finalized.
+     */
+    modifier roundNotFinalized(uint256 roundId) {
+        if (consensusRounds[roundId].finalized) {
+            revert RoundAlreadyFinalized();
+        }
         _;
     }
 
@@ -92,12 +114,11 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
         address _proposalManager,
         address _consensusInitiator
     ) Ownable(msg.sender) {
-        require(
-            _validatorRegistry != address(0) && 
-            _proposalManager != address(0) && 
-            _consensusInitiator != address(0),
-            ZeroAddress()
-        );
+        if (_validatorRegistry == address(0) || 
+            _proposalManager == address(0) || 
+            _consensusInitiator == address(0)) {
+            revert ZeroAddress();
+        }
         validatorRegistry = IValidatorRegistry(_validatorRegistry);
         proposalManager = IProposalManager(_proposalManager);
         consensusInitiator = _consensusInitiator;
@@ -108,7 +129,9 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
      * @param newInitiator The address to grant consensus initiation privileges to.
      */
     function setConsensusInitiator(address newInitiator) external onlyOwner {
-        require(newInitiator != address(0), ZeroAddress());
+        if (newInitiator == address(0)) {
+            revert ZeroAddress();
+        }
         consensusInitiator = newInitiator;
     }
 
@@ -118,10 +141,9 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
     function initiateConsensus(uint256 proposalId) external onlyConsensusInitiator returns (uint256 roundId) {
         // Verify proposal exists and is in appropriate state
         IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
-        require(
-            proposal.state == IProposalManager.ProposalState.Challenged,
-            ProposalNotInChallengedState()
-        );
+        if (proposal.state != IProposalManager.ProposalState.Challenged) {
+            revert ProposalNotInChallengedState();
+        }
 
         // Check if proposal already has active round
         uint256 currentRound = proposalToCurrentRound[proposalId];
@@ -156,14 +178,8 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
         uint256 roundId,
         bool support,
         bytes calldata signature
-    ) external onlyActiveValidator nonReentrant {
+    ) external onlyActiveValidator nonReentrant roundExists(roundId) roundNotFinalized(roundId) {
         ConsensusRound storage round = consensusRounds[roundId];
-        if (round.proposalId == 0) {
-            revert RoundNotFound();
-        }
-        if (round.finalized) {
-            revert RoundAlreadyFinalized();
-        }
         if (block.number > round.endBlock) {
             revert VotingPeriodEnded();
         }
@@ -198,14 +214,8 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IConsensusEngine
      */
-    function finalizeConsensus(uint256 roundId) external nonReentrant returns (bool approved) {
+    function finalizeConsensus(uint256 roundId) external nonReentrant roundExists(roundId) roundNotFinalized(roundId) returns (bool approved) {
         ConsensusRound storage round = consensusRounds[roundId];
-        if (round.proposalId == 0) {
-            revert RoundNotFound();
-        }
-        if (round.finalized) {
-            revert RoundAlreadyFinalized();
-        }
         if (block.number <= round.endBlock) {
             revert VotingPeriodActive();
         }
@@ -254,12 +264,8 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
      */
     function getVoteCounts(
         uint256 roundId
-    ) external view returns (uint256 votesFor, uint256 votesAgainst, uint256 totalValidators) {
+    ) external view roundExists(roundId) returns (uint256 votesFor, uint256 votesAgainst, uint256 totalValidators) {
         ConsensusRound storage round = consensusRounds[roundId];
-        if (round.proposalId == 0) {
-            revert RoundNotFound();
-        }
-        
         votesFor = round.votesFor;
         votesAgainst = round.votesAgainst;
         totalValidators = validatorRegistry.getActiveValidators().length;
