@@ -34,6 +34,8 @@ contract ProposalManagerTest is Test {
     event ProposalChallenged(uint256 indexed proposalId, address indexed challenger);
     event ProposalFinalized(uint256 indexed proposalId, IProposalManager.ProposalState state);
     event ProposalRejected(uint256 indexed proposalId, string reason);
+    event ValidatorApprovalRecorded(uint256 indexed proposalId, address indexed validator, uint256 totalApprovals);
+    event LLMValidationUpdated(uint256 indexed proposalId, bool validated);
 
     function setUp() public {
         // Deploy GLT token
@@ -571,5 +573,86 @@ contract ProposalManagerTest is Test {
             // Should be able to finalize
             proposalManager.finalizeProposal(proposalId);
         }
+    }
+
+    // New tests for refactored functionality
+    function test_RecordValidatorApproval_EmitsEvent() public {
+        vm.prank(validator1);
+        uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
+
+        vm.expectEmit(true, true, false, true);
+        emit ValidatorApprovalRecorded(proposalId, validator2, 1);
+
+        vm.prank(validator2);
+        proposalManager.recordValidatorApproval(proposalId);
+
+        assertTrue(proposalManager.hasApproved(proposalId, validator2));
+    }
+
+    function test_RecordValidatorApproval_PreventDoubleVoting() public {
+        vm.prank(validator1);
+        uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
+
+        vm.prank(validator2);
+        proposalManager.recordValidatorApproval(proposalId);
+
+        // Try to approve again
+        vm.prank(validator2);
+        vm.expectRevert("Validator already approved");
+        proposalManager.recordValidatorApproval(proposalId);
+    }
+
+    function test_UpdateLLMValidation_EmitsEvent() public {
+        vm.prank(validator1);
+        uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
+
+        vm.expectEmit(true, false, false, true);
+        emit LLMValidationUpdated(proposalId, true);
+
+        vm.prank(proposalManagerRole);
+        proposalManager.updateLLMValidation(proposalId, true);
+    }
+
+    function test_GetProposals_BatchRetrieve() public {
+        // Create multiple proposals
+        uint256[] memory proposalIds = new uint256[](3);
+        
+        for (uint256 i = 0; i < 3; i++) {
+            vm.prank(validator1);
+            proposalIds[i] = proposalManager.createProposal(
+                keccak256(abi.encodePacked("test", i)), 
+                string(abi.encodePacked("Test ", i))
+            );
+        }
+
+        IProposalManager.Proposal[] memory proposals = proposalManager.getProposals(proposalIds);
+        assertEq(proposals.length, 3);
+        
+        for (uint256 i = 0; i < 3; i++) {
+            assertEq(proposals[i].id, proposalIds[i]);
+            assertEq(proposals[i].proposer, validator1);
+        }
+    }
+
+    function test_GetProposals_RevertIfNotFound() public {
+        uint256[] memory invalidIds = new uint256[](2);
+        invalidIds[0] = 999;
+        invalidIds[1] = 1000;
+
+        vm.expectRevert(IProposalManager.ProposalNotFound.selector);
+        proposalManager.getProposals(invalidIds);
+    }
+
+    function test_HasApproved_ReturnsCorrectStatus() public {
+        vm.prank(validator1);
+        uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
+
+        assertFalse(proposalManager.hasApproved(proposalId, validator2));
+
+        vm.prank(validator2);
+        proposalManager.recordValidatorApproval(proposalId);
+
+        assertTrue(proposalManager.hasApproved(proposalId, validator2));
+        assertFalse(proposalManager.hasApproved(proposalId, validator3));
     }
 }

@@ -39,6 +39,11 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     mapping(ProposalState => uint256[]) private proposalsByState;
 
     /**
+     * @dev Mapping to track if a validator has approved a proposal.
+     */
+    mapping(uint256 => mapping(address => bool)) private hasValidatorApproved;
+
+    /**
      * @dev Validator registry contract.
      */
     IValidatorRegistry public immutable validatorRegistry;
@@ -97,7 +102,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IProposalManager
      */
-    function createProposal(bytes32 contentHash, string calldata metadata) external returns (uint256 proposalId) {
+    function createProposal(bytes32 contentHash, string calldata metadata) external nonReentrant returns (uint256 proposalId) {
         if (contentHash == bytes32(0)) {
             revert InvalidContentHash();
         }
@@ -107,17 +112,16 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
 
         proposalId = ++proposalCounter;
 
-        proposals[proposalId] = Proposal({
-            id: proposalId,
-            proposer: msg.sender,
-            contentHash: contentHash,
-            metadata: metadata,
-            state: ProposalState.Proposed,
-            createdAt: block.timestamp,
-            challengeWindowEnd: 0,
-            validatorApprovals: 0,
-            llmValidated: false
-        });
+        Proposal storage newProposal = proposals[proposalId];
+        newProposal.id = proposalId;
+        newProposal.proposer = msg.sender;
+        newProposal.contentHash = contentHash;
+        newProposal.metadata = metadata;
+        newProposal.state = ProposalState.Proposed;
+        newProposal.createdAt = block.timestamp;
+        newProposal.challengeWindowEnd = 0;
+        newProposal.validatorApprovals = 0;
+        newProposal.llmValidated = false;
 
         proposerToProposals[msg.sender].push(proposalId);
         proposalsByState[ProposalState.Proposed].push(proposalId);
@@ -218,6 +222,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
         }
 
         proposal.llmValidated = validated;
+        emit LLMValidationUpdated(proposalId, validated);
     }
 
     /**
@@ -231,8 +236,14 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
         if (proposal.state != ProposalState.Proposed && proposal.state != ProposalState.OptimisticApproved) {
             revert InvalidStateTransition();
         }
-
+        
+        // Prevent double approval from same validator
+        require(!hasValidatorApproved[proposalId][msg.sender], "Validator already approved");
+        
+        hasValidatorApproved[proposalId][msg.sender] = true;
         proposal.validatorApprovals++;
+        
+        emit ValidatorApprovalRecorded(proposalId, msg.sender, proposal.validatorApprovals);
     }
 
     /**
@@ -293,6 +304,38 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     }
 
     /**
+     * @dev Checks if a validator has already approved a proposal.
+     * @param proposalId The ID of the proposal.
+     * @param validator The address of the validator.
+     * @return True if the validator has approved the proposal.
+     */
+    function hasApproved(uint256 proposalId, address validator) external view returns (bool) {
+        return hasValidatorApproved[proposalId][validator];
+    }
+
+    /**
+     * @dev Batch function to get multiple proposals at once.
+     * @param proposalIds Array of proposal IDs to retrieve.
+     * @return Array of proposals.
+     */
+    function getProposals(uint256[] calldata proposalIds) external view returns (Proposal[] memory) {
+        uint256 length = proposalIds.length;
+        Proposal[] memory result = new Proposal[](length);
+        
+        for (uint256 i = 0; i < length;) {
+            result[i] = proposals[proposalIds[i]];
+            if (result[i].id == 0) {
+                revert ProposalNotFound();
+            }
+            unchecked {
+                ++i;
+            }
+        }
+        
+        return result;
+    }
+
+    /**
      * @dev Updates the proposal state arrays when state changes.
      * @param proposalId The ID of the proposal.
      * @param fromState The previous state.
@@ -301,11 +344,15 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     function _updateProposalStateArrays(uint256 proposalId, ProposalState fromState, ProposalState toState) private {
         // Remove from old state array
         uint256[] storage fromArray = proposalsByState[fromState];
-        for (uint256 i = 0; i < fromArray.length; i++) {
+        uint256 length = fromArray.length;
+        for (uint256 i = 0; i < length;) {
             if (fromArray[i] == proposalId) {
-                fromArray[i] = fromArray[fromArray.length - 1];
+                fromArray[i] = fromArray[length - 1];
                 fromArray.pop();
                 break;
+            }
+            unchecked {
+                ++i;
             }
         }
 

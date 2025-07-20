@@ -70,6 +70,21 @@ interface IProposalManager {
     event ProposalRejected(uint256 indexed proposalId, string reason);
 
     /**
+     * @dev Emitted when a validator records their approval.
+     * @param proposalId The ID of the proposal.
+     * @param validator The address of the validator.
+     * @param totalApprovals The total number of approvals after this one.
+     */
+    event ValidatorApprovalRecorded(uint256 indexed proposalId, address indexed validator, uint256 totalApprovals);
+
+    /**
+     * @dev Emitted when LLM validation is updated.
+     * @param proposalId The ID of the proposal.
+     * @param validated The validation status.
+     */
+    event LLMValidationUpdated(uint256 indexed proposalId, bool validated);
+
+    /**
      * @dev Error thrown when a proposal is not found.
      */
     error ProposalNotFound();
@@ -216,4 +231,19 @@ interface IProposalManager {
      * @return canFinalize True if the proposal can be finalized.
      */
     function canFinalize(uint256 proposalId) external view returns (bool canFinalize);
+
+    /**
+     * @dev Checks if a validator has already approved a proposal.
+     * @param proposalId The ID of the proposal.
+     * @param validator The address of the validator.
+     * @return approved True if the validator has approved the proposal.
+     */
+    function hasApproved(uint256 proposalId, address validator) external view returns (bool approved);
+
+    /**
+     * @dev Batch function to get multiple proposals at once.
+     * @param proposalIds Array of proposal IDs to retrieve.
+     * @return proposals Array of proposals.
+     */
+    function getProposals(uint256[] calldata proposalIds) external view returns (Proposal[] memory proposals);
 }
