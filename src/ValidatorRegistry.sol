@@ -35,16 +35,12 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     address public slasher;
 
     modifier onlySlasher() {
-        if (msg.sender != slasher) {
-            revert CallerNotSlasher();
-        }
+        require(msg.sender == slasher, CallerNotSlasher());
         _;
     }
 
     modifier validatorExists(address validator) {
-        if (validatorProxies[validator] == address(0)) {
-            revert ValidatorNotFound();
-        }
+        require(validatorProxies[validator] != address(0), ValidatorNotFound());
         _;
     }
 
@@ -54,9 +50,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @param _slasher The address authorized to slash validators.
      */
     constructor(address _gltToken, address _slasher) Ownable(msg.sender) {
-        if (_gltToken == address(0) || _slasher == address(0)) {
-            revert ZeroAddress();
-        }
+        require(_gltToken != address(0) && _slasher != address(0), ZeroAddress());
         gltToken = IERC20(_gltToken);
         slasher = _slasher;
 
@@ -69,9 +63,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @param newSlasher The address to grant slashing privileges to.
      */
     function setSlasher(address newSlasher) external onlyOwner {
-        if (newSlasher == address(0)) {
-            revert ZeroAddress();
-        }
+        require(newSlasher != address(0), ZeroAddress());
         slasher = newSlasher;
     }
 
@@ -80,9 +72,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @param newLimit The new active validator limit (must be between 1 and MAX_VALIDATORS).
      */
     function setActiveValidatorLimit(uint256 newLimit) external onlyOwner {
-        if (newLimit == 0 || newLimit > MAX_VALIDATORS) {
-            revert InvalidValidatorLimit();
-        }
+        require(newLimit != 0 && newLimit <= MAX_VALIDATORS, InvalidValidatorLimit());
         uint256 oldLimit = activeValidatorLimit;
         activeValidatorLimit = newLimit;
         emit ActiveValidatorLimitChanged(oldLimit, newLimit);
@@ -100,15 +90,11 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @inheritdoc IValidatorRegistry
      */
     function increaseStake(uint256 additionalStake) external validatorExists(msg.sender) nonReentrant {
-        if (additionalStake == 0) {
-            revert ZeroAmount();
-        }
+        require(additionalStake != 0, ZeroAmount());
 
         IValidator validator = IValidator(validatorProxies[msg.sender]);
 
-        if (validator.getStatus() != IValidator.ValidatorStatus.Active) {
-            revert InvalidValidatorStatus();
-        }
+        require(validator.getStatus() == IValidator.ValidatorStatus.Active, InvalidValidatorStatus());
 
         gltToken.safeTransferFrom(msg.sender, address(this), additionalStake);
         validator.increaseStake(additionalStake);
@@ -305,9 +291,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @return topValidators The addresses of the top N validators.
      */
     function getTopValidators(uint256 n) external view returns (address[] memory topValidators) {
-        if (n == 0) {
-            revert InvalidCount();
-        }
+        require(n != 0, InvalidCount());
 
         uint256 count = n < activeValidators.length ? n : activeValidators.length;
         topValidators = new address[](count);
@@ -324,9 +308,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @return isTop True if the validator is in the top N.
      */
     function isTopValidator(address validator, uint256 n) external view returns (bool isTop) {
-        if (n == 0) {
-            revert InvalidCount();
-        }
+        require(n != 0, InvalidCount());
 
         uint256 count = n < activeValidators.length ? n : activeValidators.length;
 
@@ -365,12 +347,8 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @param metadata The validator metadata.
      */
     function registerValidatorWithMetadata(uint256 stakeAmount, string memory metadata) public nonReentrant {
-        if (stakeAmount < MINIMUM_STAKE) {
-            revert InsufficientStake();
-        }
-        if (validatorProxies[msg.sender] != address(0)) {
-            revert ValidatorAlreadyRegistered();
-        }
+        require(stakeAmount >= MINIMUM_STAKE, InsufficientStake());
+        require(validatorProxies[msg.sender] == address(0), ValidatorAlreadyRegistered());
 
         gltToken.safeTransferFrom(msg.sender, address(this), stakeAmount);
 

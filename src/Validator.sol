@@ -36,23 +36,17 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
 
     modifier bondingPeriodMet() {
         uint256 requestBlock = uint64(_unstakeData >> 128);
-        if (block.number < requestBlock + BONDING_PERIOD) {
-            revert BondingPeriodNotMet();
-        }
+        require(block.number >= requestBlock + BONDING_PERIOD, BondingPeriodNotMet());
         _;
     }
 
     modifier onlyValidator() {
-        if (msg.sender != validatorAddress) {
-            revert Unauthorized();
-        }
+        require(msg.sender == validatorAddress, Unauthorized());
         _;
     }
 
     modifier onlyRegistry() {
-        if (msg.sender != registry) {
-            revert Unauthorized();
-        }
+        require(msg.sender == registry, Unauthorized());
         _;
     }
 
@@ -76,12 +70,8 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
     {
         __ReentrancyGuard_init();
 
-        if (_validatorAddress == address(0) || _gltToken == address(0) || _registry == address(0)) {
-            revert Unauthorized();
-        }
-        if (_initialStake < MINIMUM_STAKE) {
-            revert InsufficientStake();
-        }
+        require(_validatorAddress != address(0) && _gltToken != address(0) && _registry != address(0), Unauthorized());
+        require(_initialStake >= MINIMUM_STAKE, InsufficientStake());
 
         validatorAddress = _validatorAddress;
         stakedAmount = _initialStake;
@@ -100,12 +90,8 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
      * @inheritdoc IValidator
      */
     function increaseStake(uint256 amount) external onlyRegistry {
-        if (amount == 0) {
-            revert ZeroAmount();
-        }
-        if (status != ValidatorStatus.Active) {
-            revert InvalidValidatorStatus();
-        }
+        require(amount != 0, ZeroAmount());
+        require(status == ValidatorStatus.Active, InvalidValidatorStatus());
 
         stakedAmount += amount;
 
@@ -116,21 +102,13 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
      * @inheritdoc IValidator
      */
     function requestUnstake(uint256 amount) external onlyRegistry {
-        if (amount == 0) {
-            revert ZeroAmount();
-        }
-        if (amount > stakedAmount) {
-            revert UnstakeExceedsStake();
-        }
-        if (status != ValidatorStatus.Active) {
-            revert InvalidValidatorStatus();
-        }
+        require(amount != 0, ZeroAmount());
+        require(amount <= stakedAmount, UnstakeExceedsStake());
+        require(status == ValidatorStatus.Active, InvalidValidatorStatus());
 
         // Check if remaining stake would be below minimum
         uint256 remainingStake = stakedAmount - amount;
-        if (remainingStake > 0 && remainingStake < MINIMUM_STAKE) {
-            revert InsufficientStake();
-        }
+        require(remainingStake == 0 || remainingStake >= MINIMUM_STAKE, InsufficientStake());
 
         // Pack unstake data: amount in lower 128 bits, block number in upper bits
         _unstakeData = uint256(uint128(amount)) | (uint256(uint64(block.number)) << 128);
@@ -147,9 +125,7 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
      */
     function completeUnstake() external onlyRegistry bondingPeriodMet {
         uint256 amountToUnstake = uint128(_unstakeData);
-        if (amountToUnstake == 0) {
-            revert ZeroAmount();
-        }
+        require(amountToUnstake != 0, ZeroAmount());
 
         stakedAmount -= amountToUnstake;
         _unstakeData = 0; // Clear both amount and block number
@@ -169,9 +145,7 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
      * @inheritdoc IValidator
      */
     function slash(uint256 amount, string calldata reason) external onlyRegistry {
-        if (status == ValidatorStatus.Slashed || status == ValidatorStatus.Inactive) {
-            revert InvalidValidatorStatus();
-        }
+        require(status != ValidatorStatus.Slashed && status != ValidatorStatus.Inactive, InvalidValidatorStatus());
 
         uint256 actualSlashAmount = amount > stakedAmount ? stakedAmount : amount;
         stakedAmount -= actualSlashAmount;

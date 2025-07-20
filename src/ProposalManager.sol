@@ -110,12 +110,8 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
         nonReentrant
         returns (uint256 proposalId)
     {
-        if (contentHash == bytes32(0)) {
-            revert InvalidContentHash();
-        }
-        if (bytes(metadata).length == 0) {
-            revert EmptyMetadata();
-        }
+        require(contentHash != bytes32(0), InvalidContentHash());
+        require(bytes(metadata).length != 0, EmptyMetadata());
 
         proposalId = ++proposalCounter;
 
@@ -143,12 +139,8 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      */
     function approveOptimistically(uint256 proposalId) external onlyProposalManager {
         Proposal storage proposal = proposals[proposalId];
-        if (proposal.id == 0) {
-            revert ProposalNotFound();
-        }
-        if (proposal.state != ProposalState.Proposed) {
-            revert InvalidStateTransition();
-        }
+        require(proposal.id != 0, ProposalNotFound());
+        require(proposal.state == ProposalState.Proposed, InvalidStateTransition());
 
         proposal.state = ProposalState.OptimisticApproved;
         proposal.challengeWindowEnd = block.number + CHALLENGE_WINDOW_DURATION;
@@ -163,15 +155,9 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      */
     function challengeProposal(uint256 proposalId) external onlyActiveValidator {
         Proposal storage proposal = proposals[proposalId];
-        if (proposal.id == 0) {
-            revert ProposalNotFound();
-        }
-        if (proposal.state != ProposalState.OptimisticApproved) {
-            revert ProposalNotChallengeable();
-        }
-        if (block.number > proposal.challengeWindowEnd) {
-            revert ChallengeWindowExpired();
-        }
+        require(proposal.id != 0, ProposalNotFound());
+        require(proposal.state == ProposalState.OptimisticApproved, ProposalNotChallengeable());
+        require(block.number <= proposal.challengeWindowEnd, ChallengeWindowExpired());
 
         proposal.state = ProposalState.Challenged;
         _updateProposalStateArrays(proposalId, ProposalState.OptimisticApproved, ProposalState.Challenged);
@@ -184,15 +170,9 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      */
     function finalizeProposal(uint256 proposalId) external {
         Proposal storage proposal = proposals[proposalId];
-        if (proposal.id == 0) {
-            revert ProposalNotFound();
-        }
-        if (proposal.state != ProposalState.OptimisticApproved) {
-            revert InvalidStateTransition();
-        }
-        if (block.number <= proposal.challengeWindowEnd) {
-            revert ChallengeWindowActive();
-        }
+        require(proposal.id != 0, ProposalNotFound());
+        require(proposal.state == ProposalState.OptimisticApproved, InvalidStateTransition());
+        require(block.number > proposal.challengeWindowEnd, ChallengeWindowActive());
 
         proposal.state = ProposalState.Finalized;
         _updateProposalStateArrays(proposalId, ProposalState.OptimisticApproved, ProposalState.Finalized);
@@ -205,12 +185,11 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      */
     function rejectProposal(uint256 proposalId, string calldata reason) external onlyProposalManager {
         Proposal storage proposal = proposals[proposalId];
-        if (proposal.id == 0) {
-            revert ProposalNotFound();
-        }
-        if (proposal.state == ProposalState.Finalized || proposal.state == ProposalState.Rejected) {
-            revert InvalidStateTransition();
-        }
+        require(proposal.id != 0, ProposalNotFound());
+        require(
+            proposal.state != ProposalState.Finalized && proposal.state != ProposalState.Rejected,
+            InvalidStateTransition()
+        );
 
         ProposalState previousState = proposal.state;
         proposal.state = ProposalState.Rejected;
@@ -224,9 +203,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      */
     function updateLLMValidation(uint256 proposalId, bool validated) external onlyProposalManager {
         Proposal storage proposal = proposals[proposalId];
-        if (proposal.id == 0) {
-            revert ProposalNotFound();
-        }
+        require(proposal.id != 0, ProposalNotFound());
 
         proposal.llmValidated = validated;
         emit LLMValidationUpdated(proposalId, validated);
@@ -237,15 +214,14 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      */
     function recordValidatorApproval(uint256 proposalId) external onlyActiveValidator {
         Proposal storage proposal = proposals[proposalId];
-        if (proposal.id == 0) {
-            revert ProposalNotFound();
-        }
-        if (proposal.state != ProposalState.Proposed && proposal.state != ProposalState.OptimisticApproved) {
-            revert InvalidStateTransition();
-        }
+        require(proposal.id != 0, ProposalNotFound());
+        require(
+            proposal.state == ProposalState.Proposed || proposal.state == ProposalState.OptimisticApproved,
+            InvalidStateTransition()
+        );
 
         // Prevent double approval from same validator
-        require(!hasValidatorApproved[proposalId][msg.sender], "Validator already approved");
+        require(!hasValidatorApproved[proposalId][msg.sender], ValidatorAlreadyApproved());
 
         hasValidatorApproved[proposalId][msg.sender] = true;
         proposal.validatorApprovals++;
@@ -258,9 +234,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      */
     function getProposal(uint256 proposalId) external view returns (Proposal memory) {
         Proposal memory proposal = proposals[proposalId];
-        if (proposal.id == 0) {
-            revert ProposalNotFound();
-        }
+        require(proposal.id != 0, ProposalNotFound());
         return proposal;
     }
 

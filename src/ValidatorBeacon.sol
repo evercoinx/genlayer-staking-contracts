@@ -10,6 +10,10 @@ import { UpgradeableBeacon } from "@openzeppelin/contracts/proxy/beacon/Upgradea
  * This allows for upgradeable validator logic while keeping individual validator state isolated.
  */
 contract ValidatorBeacon is UpgradeableBeacon {
+    // Custom errors
+    error ImplementationIsZeroAddress();
+    error ImplementationUnchanged();
+
     /**
      * @dev Emitted when the validator implementation is upgraded.
      * @param implementation The new implementation address.
@@ -28,12 +32,8 @@ contract ValidatorBeacon is UpgradeableBeacon {
      * @param newImplementation The new validator implementation address.
      */
     function upgradeImplementation(address newImplementation) external onlyOwner {
-        if (newImplementation == address(0)) {
-            revert("ValidatorBeacon: implementation is zero address");
-        }
-        if (newImplementation == implementation()) {
-            revert("ValidatorBeacon: implementation unchanged");
-        }
+        require(newImplementation != address(0), ImplementationIsZeroAddress());
+        require(newImplementation != implementation(), ImplementationUnchanged());
 
         upgradeTo(newImplementation);
         emit ValidatorImplementationUpgraded(newImplementation);

@@ -93,9 +93,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
     {
         Dispute storage dispute = _validateVotingEligibility(disputeId);
 
-        if (!_verifyDisputeVoteSignature(disputeId, msg.sender, supportChallenge, signature)) {
-            revert InvalidSignature();
-        }
+        require(_verifyDisputeVoteSignature(disputeId, msg.sender, supportChallenge, signature), InvalidSignature());
 
         _recordVote(disputeId, dispute, supportChallenge, signature);
 
@@ -128,12 +126,8 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
      */
     function cancelDispute(uint256 disputeId, string calldata /* reason */ ) external onlyOwner {
         Dispute storage dispute = disputes[disputeId];
-        if (dispute.proposalId == 0) {
-            revert DisputeNotFound();
-        }
-        if (dispute.state != DisputeState.Active) {
-            revert InvalidDisputeState();
-        }
+        require(dispute.proposalId != 0, DisputeNotFound());
+        require(dispute.state == DisputeState.Active, InvalidDisputeState());
 
         dispute.state = DisputeState.Cancelled;
 
@@ -147,9 +141,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
      */
     function getDispute(uint256 disputeId) external view returns (Dispute memory) {
         Dispute memory dispute = disputes[disputeId];
-        if (dispute.proposalId == 0) {
-            revert DisputeNotFound();
-        }
+        require(dispute.proposalId != 0, DisputeNotFound());
         return dispute;
     }
 
@@ -249,12 +241,8 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
      * @param challengeStake The stake amount to validate.
      */
     function _validateChallengeStake(uint256 challengeStake) private pure {
-        if (challengeStake == 0) {
-            revert ZeroChallengeStake();
-        }
-        if (challengeStake < MINIMUM_CHALLENGE_STAKE) {
-            revert InsufficientChallengeStake();
-        }
+        require(challengeStake != 0, ZeroChallengeStake());
+        require(challengeStake >= MINIMUM_CHALLENGE_STAKE, InsufficientChallengeStake());
     }
 
     /**
@@ -264,12 +252,8 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
      */
     function _validateProposalDisputable(uint256 proposalId) private view returns (IProposalManager.Proposal memory) {
         IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
-        if (proposal.state != IProposalManager.ProposalState.OptimisticApproved) {
-            revert ProposalNotDisputable();
-        }
-        if (!proposalManager.canChallenge(proposalId)) {
-            revert ProposalNotDisputable();
-        }
+        require(proposal.state == IProposalManager.ProposalState.OptimisticApproved, ProposalNotDisputable());
+        require(proposalManager.canChallenge(proposalId), ProposalNotDisputable());
         return proposal;
     }
 
@@ -317,18 +301,10 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
      */
     function _validateVotingEligibility(uint256 disputeId) private view returns (Dispute storage) {
         Dispute storage dispute = disputes[disputeId];
-        if (dispute.proposalId == 0) {
-            revert DisputeNotFound();
-        }
-        if (dispute.state != DisputeState.Active) {
-            revert InvalidDisputeState();
-        }
-        if (block.timestamp > dispute.votingEndTime) {
-            revert DisputeVotingEnded();
-        }
-        if (hasVoted[disputeId][msg.sender]) {
-            revert ValidatorAlreadyVoted();
-        }
+        require(dispute.proposalId != 0, DisputeNotFound());
+        require(dispute.state == DisputeState.Active, InvalidDisputeState());
+        require(block.timestamp <= dispute.votingEndTime, DisputeVotingEnded());
+        require(!hasVoted[disputeId][msg.sender], ValidatorAlreadyVoted());
         return dispute;
     }
 
@@ -369,15 +345,9 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
      */
     function _validateDisputeResolvable(uint256 disputeId) private view returns (Dispute storage) {
         Dispute storage dispute = disputes[disputeId];
-        if (dispute.proposalId == 0) {
-            revert DisputeNotFound();
-        }
-        if (dispute.state != DisputeState.Active) {
-            revert InvalidDisputeState();
-        }
-        if (block.timestamp <= dispute.votingEndTime) {
-            revert DisputeVotingActive();
-        }
+        require(dispute.proposalId != 0, DisputeNotFound());
+        require(dispute.state == DisputeState.Active, InvalidDisputeState());
+        require(block.timestamp > dispute.votingEndTime, DisputeVotingActive());
         return dispute;
     }
 

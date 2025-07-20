@@ -35,15 +35,9 @@ contract MockLLMOracle is IMockLLMOracle {
         external
         returns (bool[] memory results)
     {
-        if (proposalIds.length != proposalHashes.length) {
-            revert ArrayLengthMismatch();
-        }
-        if (proposalIds.length == 0) {
-            revert EmptyArray();
-        }
-        if (proposalIds.length > MAX_BATCH_SIZE) {
-            revert BatchSizeTooLarge();
-        }
+        require(proposalIds.length == proposalHashes.length, ArrayLengthMismatch());
+        require(proposalIds.length != 0, EmptyArray());
+        require(proposalIds.length <= MAX_BATCH_SIZE, BatchSizeTooLarge());
 
         results = new bool[](proposalIds.length);
 

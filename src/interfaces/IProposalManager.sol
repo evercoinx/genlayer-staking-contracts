@@ -140,6 +140,11 @@ interface IProposalManager {
     error ZeroAddress();
 
     /**
+     * @dev Error thrown when validator has already approved a proposal.
+     */
+    error ValidatorAlreadyApproved();
+
+    /**
      * @dev Creates a new proposal.
      * @param contentHash The hash of the proposal content.
      * @param metadata Additional metadata for the proposal.

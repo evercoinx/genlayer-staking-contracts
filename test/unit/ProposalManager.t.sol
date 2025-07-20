@@ -566,7 +566,7 @@ contract ProposalManagerTest is Test {
         proposalManager.recordValidatorApproval(proposalId);
 
         vm.prank(validator2);
-        vm.expectRevert("Validator already approved");
+        vm.expectRevert(IProposalManager.ValidatorAlreadyApproved.selector);
         proposalManager.recordValidatorApproval(proposalId);
     }
 

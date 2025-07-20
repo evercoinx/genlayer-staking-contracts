@@ -129,7 +129,6 @@ contract EdgeCaseIntegrationTest is Test {
 
     // Test: Challenge window expiry during active dispute
     function test_EdgeCase_ChallengeWindowExpiryDuringDispute() public {
-
         // 1. Create and approve proposal
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
@@ -158,12 +157,10 @@ contract EdgeCaseIntegrationTest is Test {
 
         vm.warp(block.timestamp + DISPUTE_VOTING_PERIOD + 1);
         disputeResolver.resolveDispute(disputeId);
-
     }
 
     // Test: Maximum validators reached
     function test_EdgeCase_MaximumValidatorsReached() public {
-
         // Get current active validator limit
         uint256 activeValidatorLimit = validatorRegistry.getActiveValidatorLimit();
 
@@ -198,7 +195,6 @@ contract EdgeCaseIntegrationTest is Test {
 
     // Test: Consensus with minimum quorum exactly met
     function test_EdgeCase_MinimumQuorumExactlyMet() public {
-
         // Create proposal and challenge it
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
@@ -221,7 +217,6 @@ contract EdgeCaseIntegrationTest is Test {
         vm.prank(validator2);
         consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR2_PRIVATE_KEY, roundId, true));
 
-
         // Finalize
         vm.roll(block.number + VOTING_PERIOD + 1);
         bool approved = consensusEngine.finalizeConsensus(roundId);
@@ -230,7 +225,6 @@ contract EdgeCaseIntegrationTest is Test {
 
     // Test: Insufficient balance for challenge stake
     function test_EdgeCase_InsufficientBalanceForChallenge() public {
-
         // Create proposal
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
@@ -247,12 +241,10 @@ contract EdgeCaseIntegrationTest is Test {
         vm.expectRevert();
         vm.prank(validator3);
         disputeResolver.createDispute(proposalId, 100e18);
-
     }
 
     // Test: Validator unstaking during active consensus
     function test_EdgeCase_ValidatorUnstakingDuringConsensus() public {
-
         // Create proposal and initiate consensus
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
@@ -274,12 +266,10 @@ contract EdgeCaseIntegrationTest is Test {
         vm.prank(validator2);
         validatorRegistry.requestUnstake(1500e18); // Full unstake
 
-
         // Validator2 tries to vote after requesting unstake
         vm.expectRevert(IConsensusEngine.NotActiveValidator.selector);
         vm.prank(validator2);
         consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR2_PRIVATE_KEY, roundId, true));
-
 
         // Finalize with reduced validator set
         vm.roll(block.number + VOTING_PERIOD + 1);
@@ -289,7 +279,6 @@ contract EdgeCaseIntegrationTest is Test {
 
     // Test: Multiple disputes on same proposal
     function test_EdgeCase_MultipleDisputesOnSameProposal() public {
-
         // Create and approve proposal
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("controversial"), "Controversial");
@@ -303,7 +292,6 @@ contract EdgeCaseIntegrationTest is Test {
 
         vm.prank(validator3);
         uint256 disputeId2 = disputeResolver.createDispute(proposalId, 150e18);
-
 
         // Different outcomes for each dispute
         // Dispute 1: Challenger wins - need 2 votes out of 3 (>= 50%)
@@ -341,7 +329,6 @@ contract EdgeCaseIntegrationTest is Test {
 
     // Test: Tie vote in consensus
     function test_EdgeCase_TieVoteInConsensus() public {
-
         // Setup 4th validator with proper private key
         uint256 validator4PrivateKey = 0x4444;
         address validator4 = vm.addr(validator4PrivateKey);
@@ -374,7 +361,6 @@ contract EdgeCaseIntegrationTest is Test {
         vm.prank(validator4);
         consensusEngine.castVote(roundId, false, createVoteSignature(validator4PrivateKey, roundId, false));
 
-
         // Finalize - tie should result in rejection (not meeting quorum)
         vm.roll(block.number + VOTING_PERIOD + 1);
         bool approved = consensusEngine.finalizeConsensus(roundId);
@@ -383,7 +369,6 @@ contract EdgeCaseIntegrationTest is Test {
 
     // Test: Zero participation in consensus
     function test_EdgeCase_ZeroParticipationInConsensus() public {
-
         // Create proposal and challenge
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("ignored"), "Ignored");
@@ -411,7 +396,6 @@ contract EdgeCaseIntegrationTest is Test {
 
     // Test: Validator slashed multiple times
     function test_EdgeCase_ValidatorSlashedMultipleTimes() public {
-
         // Validator1 creates multiple bad proposals
         uint256[] memory proposalIds = new uint256[](3);
         uint256[] memory disputeIds = new uint256[](3);
@@ -428,7 +412,6 @@ contract EdgeCaseIntegrationTest is Test {
             vm.prank(validator2);
             disputeIds[i] = disputeResolver.createDispute(proposalIds[i], 100e18);
         }
-
 
         // Resolve all disputes against validator1
         IValidatorRegistry.ValidatorInfo memory infoBefore = validatorRegistry.getValidatorInfo(validator1);
