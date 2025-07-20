@@ -331,7 +331,7 @@ contract ValidatorRegistryTest is Test {
         registry.upgradeValidatorImplementation(address(newImplementation));
 
         ValidatorBeacon beacon = ValidatorBeacon(registry.getValidatorBeacon());
-        assertEq(beacon.getImplementation(), address(newImplementation));
+        assertEq(beacon.implementation(), address(newImplementation));
     }
 
     function test_SetSlasher() public {
