@@ -23,7 +23,10 @@ jobs:
           version: stable
 
       - name: Create .env file
-        run: cp .env.example .env
+        run: |
+          cp .env.example .env
+          echo "ALCHEMY_API_KEY=${{ secrets.ALCHEMY_API_KEY }}" >> .env
+          echo "PRIVATE_KEY=${{ secrets.PRIVATE_KEY }}" >> .env
 
       - name: Install dependencies
         run: forge install
@@ -66,7 +69,7 @@ jobs:
       - name: Generate ABIs
         run: |
           mkdir -p abis
-          for contract in SmartAccount SmartAccountFactory; do
+          for contract in GLTToken ValidatorRegistry ProposalManager ConsensusEngine DisputeResolver MockLLMOracle; do
             find out -name "$contract.json" | while read file; do
               dir_name=$(dirname "$file" | sed 's|^out/||')
               mkdir -p "abis/$dir_name"
