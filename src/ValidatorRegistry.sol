@@ -18,70 +18,22 @@ import { ValidatorBeacon } from "./ValidatorBeacon.sol";
  */
 contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
-    /**
-     * @dev The GLT token used for staking.
-     */
 
     IERC20 public immutable gltToken;
-
-    /**
-     * @dev The beacon contract that manages validator implementation.
-     */
     ValidatorBeacon public immutable validatorBeacon;
 
-    /**
-     * @dev Minimum stake required to become a validator (1000 GLT).
-     */
     uint256 public constant MINIMUM_STAKE = 1000e18;
-
-    /**
-     * @dev Bonding period for unstaking (1 block for simplicity per PRD).
-     */
     uint256 public constant BONDING_PERIOD = 1;
-
-    /**
-     * @dev Maximum number of active validators.
-     */
     uint256 public constant MAX_VALIDATORS = 100;
-
-    /**
-     * @dev Number of top validators to select for consensus (configurable).
-     */
-    uint256 public activeValidatorLimit = 5;
-
-    /**
-     * @dev Slash percentage (10%).
-     */
     uint256 public constant SLASH_PERCENTAGE = 10;
 
-    /**
-     * @dev Mapping from validator address to their beacon proxy contract.
-     */
+    uint256 public activeValidatorLimit = 5;
     mapping(address => address) public validatorProxies;
-
-    /**
-     * @dev Array of all registered validator addresses.
-     */
     address[] private validatorList;
-
-    /**
-     * @dev Array of currently active validators.
-     */
     address[] private activeValidators;
-
-    /**
-     * @dev Total amount staked across all validators.
-     */
     uint256 private totalStaked;
-
-    /**
-     * @dev Address authorized to slash validators.
-     */
     address public slasher;
 
-    /**
-     * @dev Modifier to restrict functions to only the slasher.
-     */
     modifier onlySlasher() {
         if (msg.sender != slasher) {
             revert CallerNotSlasher();
@@ -89,9 +41,6 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         _;
     }
 
-    /**
-     * @dev Modifier to ensure validator has a proxy.
-     */
     modifier validatorExists(address validator) {
         if (validatorProxies[validator] == address(0)) {
             revert ValidatorNotFound();
@@ -111,14 +60,9 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         gltToken = IERC20(_gltToken);
         slasher = _slasher;
 
-        // Deploy validator implementation
         Validator validatorImplementation = new Validator();
-
-        // Deploy beacon
         validatorBeacon = new ValidatorBeacon(address(validatorImplementation), address(this));
     }
-
-    // External non-view/pure functions
 
     /**
      * @dev Sets a new slasher address. Only callable by owner.
@@ -162,25 +106,17 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
 
         IValidator validator = IValidator(validatorProxies[msg.sender]);
 
-        // Check if validator is active
         if (validator.getStatus() != IValidator.ValidatorStatus.Active) {
             revert InvalidValidatorStatus();
         }
 
-        // Transfer tokens from validator to registry first
         gltToken.safeTransferFrom(msg.sender, address(this), additionalStake);
-
-        // Call the validator proxy to increase stake
         validator.increaseStake(additionalStake);
-
-        // Transfer tokens from registry to validator proxy
         gltToken.safeTransfer(address(validator), additionalStake);
 
         totalStaked += additionalStake;
 
         emit StakeIncreased(msg.sender, additionalStake, validator.getStakedAmount());
-
-        // Update active validator set
         _updateActiveValidatorSet();
     }
 
@@ -193,12 +129,11 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         uint256 currentStake = validator.getStakedAmount();
         uint256 remainingStake = currentStake - unstakeAmount;
 
-        // Call the validator proxy to request unstake
         validator.requestUnstake(unstakeAmount);
 
         emit UnstakeRequested(msg.sender, unstakeAmount, block.number);
 
-        // Update active validator set if fully unstaking
+        // Update active validator set only if fully unstaking
         if (remainingStake == 0) {
             _updateActiveValidatorSet();
         }
@@ -212,7 +147,6 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
 
         uint256 stakeBefore = validator.getStakedAmount();
 
-        // Call the validator proxy to complete unstake
         validator.completeUnstake();
 
         uint256 stakeAfter = validator.getStakedAmount();
@@ -249,14 +183,10 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
             actualSlashAmount = stakeBefore;
         }
 
-        // Call the validator proxy to slash
         validator.slash(actualSlashAmount, reason);
-
         totalStaked -= actualSlashAmount;
 
         emit ValidatorSlashed(validatorAddress, actualSlashAmount, reason);
-
-        // Update active validator set
         _updateActiveValidatorSet();
     }
 
@@ -275,8 +205,6 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         validatorBeacon.upgradeImplementation(newImplementation);
     }
 
-    // External view functions
-
     /**
      * @inheritdoc IValidatorRegistry
      */
@@ -289,7 +217,6 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         IValidator validatorContract = IValidator(validatorProxies[validator]);
         IValidator.ValidatorInfo memory info = validatorContract.getValidatorInfo();
 
-        // Convert to IValidatorRegistry.ValidatorInfo format
         return ValidatorInfo({
             validatorAddress: info.validatorAddress,
             stakedAmount: info.stakedAmount,
@@ -411,8 +338,6 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         return false;
     }
 
-    // External pure functions
-
     /**
      * @inheritdoc IValidatorRegistry
      */
@@ -434,8 +359,6 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         return MAX_VALIDATORS;
     }
 
-    // Public function
-
     /**
      * @dev Registers a new validator with metadata using beacon proxy pattern.
      * @param stakeAmount The amount of GLT tokens to stake.
@@ -449,10 +372,8 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
             revert ValidatorAlreadyRegistered();
         }
 
-        // Transfer GLT tokens to registry first
         gltToken.safeTransferFrom(msg.sender, address(this), stakeAmount);
 
-        // Create beacon proxy for the validator
         BeaconProxy validatorProxy = new BeaconProxy(
             address(validatorBeacon),
             abi.encodeWithSelector(
@@ -460,10 +381,8 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
             )
         );
 
-        // Transfer tokens to the validator proxy
         gltToken.safeTransfer(address(validatorProxy), stakeAmount);
 
-        // Store the mapping
         validatorProxies[msg.sender] = address(validatorProxy);
         validatorList.push(msg.sender);
         totalStaked += stakeAmount;
@@ -471,22 +390,17 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         emit ValidatorRegistered(msg.sender, stakeAmount);
         emit ValidatorProxyCreated(msg.sender, address(validatorProxy), stakeAmount);
 
-        // Update active validator set
         _updateActiveValidatorSet();
     }
-
-    // Private function
 
     /**
      * @dev Internal function to update the active validator set based on stake amounts.
      */
     function _updateActiveValidatorSet() private {
-        // Create arrays for eligible validators
         address[] memory eligibleValidators = new address[](validatorList.length);
         uint256[] memory stakes = new uint256[](validatorList.length);
         uint256 eligibleCount = 0;
 
-        // Collect eligible validators
         for (uint256 i = 0; i < validatorList.length; i++) {
             address validatorAddr = validatorList[i];
             IValidator validator = IValidator(validatorProxies[validatorAddr]);
@@ -520,7 +434,6 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
             }
         }
 
-        // Select top validators up to activeValidatorLimit
         uint256 activeCount = eligibleCount < activeValidatorLimit ? eligibleCount : activeValidatorLimit;
         delete activeValidators;
         for (uint256 i = 0; i < activeCount; i++) {

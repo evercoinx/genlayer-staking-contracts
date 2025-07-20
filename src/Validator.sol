@@ -15,39 +15,13 @@ import { IValidator } from "./interfaces/IValidator.sol";
 contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
 
-    /**
-     * @dev Minimum stake required to become a validator (1000 GLT).
-     */
     uint256 public constant MINIMUM_STAKE = 1000e18;
-
-    /**
-     * @dev Bonding period for unstaking (1 block for simplicity per PRD).
-     */
     uint256 public constant BONDING_PERIOD = 1;
 
-    /**
-     * @dev The GLT token used for staking.
-     */
     IERC20 public gltToken;
-
-    /**
-     * @dev The validator registry contract address.
-     */
     address public registry;
-
-    /**
-     * @dev The validator's address (owner of this validator instance).
-     */
     address public validatorAddress;
-
-    /**
-     * @dev Amount of GLT tokens staked by this validator.
-     */
     uint256 public stakedAmount;
-
-    /**
-     * @dev Current status of the validator.
-     */
     ValidatorStatus public status;
 
     /**
@@ -58,14 +32,8 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
      */
     uint256 private _unstakeData;
 
-    /**
-     * @dev Validator metadata (can include node info, contact details, etc.).
-     */
     string public metadata;
 
-    /**
-     * @dev Checks if the bonding period has passed for unstaking.
-     */
     modifier bondingPeriodMet() {
         uint256 requestBlock = uint64(_unstakeData >> 128);
         if (block.number < requestBlock + BONDING_PERIOD) {
@@ -74,9 +42,6 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
         _;
     }
 
-    /**
-     * @dev Modifier to restrict functions to only the validator owner.
-     */
     modifier onlyValidator() {
         if (msg.sender != validatorAddress) {
             revert Unauthorized();
@@ -84,9 +49,6 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
         _;
     }
 
-    /**
-     * @dev Modifier to restrict functions to only the registry.
-     */
     modifier onlyRegistry() {
         if (msg.sender != registry) {
             revert Unauthorized();
@@ -94,9 +56,6 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
         _;
     }
 
-    /**
-     * @dev Disables initializers to prevent direct implementation calls.
-     */
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -131,7 +90,6 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
         registry = _registry;
         status = ValidatorStatus.Active;
 
-        // Tokens are transferred by the registry during initialization
         emit StakeIncreased(_initialStake, _initialStake);
         if (bytes(_metadata).length > 0) {
             emit MetadataUpdated(_metadata);
@@ -149,7 +107,6 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
             revert InvalidValidatorStatus();
         }
 
-        // Registry handles token transfers, we just update the stake amount
         stakedAmount += amount;
 
         emit StakeIncreased(amount, stakedAmount);
@@ -175,10 +132,9 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
             revert InsufficientStake();
         }
 
-        // Pack unstake data
+        // Pack unstake data: amount in lower 128 bits, block number in upper bits
         _unstakeData = uint256(uint128(amount)) | (uint256(uint64(block.number)) << 128);
 
-        // If unstaking everything, mark as unstaking
         if (remainingStake == 0) {
             status = ValidatorStatus.Unstaking;
         }
@@ -198,14 +154,12 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
         stakedAmount -= amountToUnstake;
         _unstakeData = 0; // Clear both amount and block number
 
-        // Update status based on remaining stake
         if (stakedAmount == 0) {
             status = ValidatorStatus.Inactive;
         } else {
             status = ValidatorStatus.Active;
         }
 
-        // Transfer GLT tokens back to the validator
         gltToken.safeTransfer(validatorAddress, amountToUnstake);
 
         emit UnstakeCompleted(amountToUnstake);
@@ -219,14 +173,12 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
             revert InvalidValidatorStatus();
         }
 
-        // Cap the slash amount to current stake
         uint256 actualSlashAmount = amount > stakedAmount ? stakedAmount : amount;
         stakedAmount -= actualSlashAmount;
 
-        // Update status based on remaining stake
         _updateStatusAfterSlash();
 
-        // Slashed tokens remain in this contract (could be transferred to treasury in future)
+        // Slashed tokens remain in this contract
         emit ValidatorSlashed(actualSlashAmount, reason);
     }
 
@@ -239,7 +191,6 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
         } else if (stakedAmount < MINIMUM_STAKE) {
             status = ValidatorStatus.Slashed;
         }
-        // Otherwise status remains Active
     }
 
     /**
@@ -259,7 +210,7 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
             stakedAmount: stakedAmount,
             status: status,
             unstakeRequestTime: uint64(_unstakeData >> 128),
-            activationTime: 0, // Removed as not needed
+            activationTime: 0,
             metadata: metadata
         });
     }

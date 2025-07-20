@@ -18,54 +18,19 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
-    /**
-     * @dev Voting period duration in blocks.
-     */
     uint256 public constant VOTING_PERIOD = 100;
-
-    /**
-     * @dev Quorum percentage required for consensus (60% - at least 3/5 validators as per PRD).
-     */
     uint256 public constant QUORUM_PERCENTAGE = 60;
 
-    /**
-     * @dev Counter for consensus round IDs.
-     */
-    uint256 private roundCounter;
-
-    /**
-     * @dev Mapping from round ID to consensus round data.
-     */
-    mapping(uint256 => ConsensusRound) private consensusRounds;
-
-    /**
-     * @dev Mapping from proposal ID to current round ID.
-     */
-    mapping(uint256 => uint256) private proposalToCurrentRound;
-
-    /**
-     * @dev Mapping from round ID and validator to vote data.
-     */
-    mapping(uint256 => mapping(address => Vote)) private roundVotes;
-
-    /**
-     * @dev Validator registry contract.
-     */
     IValidatorRegistry public immutable validatorRegistry;
-
-    /**
-     * @dev Proposal manager contract.
-     */
     IProposalManager public immutable proposalManager;
 
-    /**
-     * @dev Address authorized to initiate consensus.
-     */
     address public consensusInitiator;
 
-    /**
-     * @dev Modifier to restrict functions to active validators.
-     */
+    uint256 private roundCounter;
+    mapping(uint256 => ConsensusRound) private consensusRounds;
+    mapping(uint256 => uint256) private proposalToCurrentRound;
+    mapping(uint256 => mapping(address => Vote)) private roundVotes;
+
     modifier onlyActiveValidator() {
         if (!validatorRegistry.isActiveValidator(msg.sender)) {
             revert NotActiveValidator();
@@ -73,9 +38,6 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
         _;
     }
 
-    /**
-     * @dev Modifier to restrict functions to consensus initiator.
-     */
     modifier onlyConsensusInitiator() {
         if (msg.sender != consensusInitiator) {
             revert CallerNotConsensusInitiator();
@@ -83,9 +45,6 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
         _;
     }
 
-    /**
-     * @dev Modifier to validate round exists.
-     */
     modifier roundExists(uint256 roundId) {
         if (consensusRounds[roundId].proposalId == 0) {
             revert RoundNotFound();
@@ -93,9 +52,6 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
         _;
     }
 
-    /**
-     * @dev Modifier to validate round is not finalized.
-     */
     modifier roundNotFinalized(uint256 roundId) {
         if (consensusRounds[roundId].finalized) {
             revert RoundAlreadyFinalized();
@@ -139,7 +95,6 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
      * @inheritdoc IConsensusEngine
      */
     function initiateConsensus(uint256 proposalId) external onlyConsensusInitiator returns (uint256 roundId) {
-        // Verify proposal exists and is in appropriate state
         IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
         if (proposal.state != IProposalManager.ProposalState.Challenged) {
             revert ProposalNotInChallengedState();
@@ -193,17 +148,14 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
             revert AlreadyVoted();
         }
 
-        // Verify signature
         if (!_verifyVoteSignature(roundId, msg.sender, support, signature)) {
             revert InvalidSignature();
         }
 
-        // Record vote
         round.hasVoted[msg.sender] = true;
         roundVotes[roundId][msg.sender] =
             Vote({ validator: msg.sender, support: support, signature: signature, timestamp: block.timestamp });
 
-        // Update vote counts
         if (support) {
             round.votesFor++;
         } else {
@@ -230,12 +182,11 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
 
         round.finalized = true;
 
-        // Calculate if proposal is approved
         address[] memory activeValidators = validatorRegistry.getActiveValidators();
         uint256 totalValidators = activeValidators.length;
         uint256 totalVotes = round.votesFor + round.votesAgainst;
 
-        // Check quorum
+        // Check quorum: at least 60% participation required
         bool hasQuorum = (totalVotes * 100) >= (totalValidators * QUORUM_PERCENTAGE);
 
         // Proposal is approved if it has quorum and majority support

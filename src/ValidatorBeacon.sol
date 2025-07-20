@@ -21,16 +21,13 @@ contract ValidatorBeacon is UpgradeableBeacon {
      * @param implementation The initial validator implementation address.
      * @param owner The address that will own the beacon (typically the ValidatorRegistry).
      */
-    constructor(address implementation, address owner) UpgradeableBeacon(implementation, owner) {
-        // UpgradeableBeacon constructor handles implementation and ownership setup
-    }
+    constructor(address implementation, address owner) UpgradeableBeacon(implementation, owner) { }
 
     /**
      * @dev Upgrades the validator implementation for all beacon proxies.
      * @param newImplementation The new validator implementation address.
      */
     function upgradeImplementation(address newImplementation) external onlyOwner {
-        // Validate new implementation address
         if (newImplementation == address(0)) {
             revert("ValidatorBeacon: implementation is zero address");
         }

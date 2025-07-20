@@ -10,14 +10,7 @@ import { IMockLLMOracle } from "./interfaces/IMockLLMOracle.sol";
  * for testing purposes. Even hashes are considered valid, odd hashes are invalid.
  */
 contract MockLLMOracle is IMockLLMOracle {
-    /**
-     * @dev Maximum number of proposals that can be validated in a single batch.
-     */
     uint256 public constant MAX_BATCH_SIZE = 100;
-
-    /**
-     * @dev Counter for total validations performed.
-     */
     uint256 private totalValidations;
 
     /**
@@ -92,7 +85,7 @@ contract MockLLMOracle is IMockLLMOracle {
      * @return True if the hash is even, false if odd.
      */
     function _isValidHash(bytes32 hash) private pure returns (bool) {
-        // Convert last byte to uint and check if even
+        // Deterministic: even hashes are valid, odd hashes are invalid
         return uint8(hash[31]) % 2 == 0;
     }
 }

@@ -12,19 +12,10 @@ import { IGLTToken } from "./interfaces/IGLTToken.sol";
  * Only the designated minter address can mint new tokens.
  */
 contract GLTToken is ERC20, Ownable, IGLTToken {
-    /**
-     * @dev Maximum supply cap of 1 billion tokens (with 18 decimals).
-     */
     uint256 public constant override MAX_SUPPLY = 1_000_000_000e18;
 
-    /**
-     * @dev Address authorized to mint new tokens.
-     */
     address public override minter;
 
-    /**
-     * @dev Modifier to restrict functions to only the minter.
-     */
     modifier onlyMinter() {
         require(msg.sender == minter, CallerNotMinter());
         _;
@@ -69,7 +60,7 @@ contract GLTToken is ERC20, Ownable, IGLTToken {
         require(amount > 0, BurnZeroAmount());
         require(balanceOf(from) >= amount, BurnExceedsBalance());
 
-        // If caller is not the token owner, we need to check and update allowance
+        // Check and update allowance if caller is not the token owner
         if (from != msg.sender) {
             _spendAllowance(from, msg.sender, amount);
         }

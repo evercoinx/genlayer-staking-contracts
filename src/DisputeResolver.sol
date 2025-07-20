@@ -21,74 +21,22 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
-    /**
-     * @dev Minimum challenge stake (100 GLT).
-     */
     uint256 public constant MINIMUM_CHALLENGE_STAKE = 100e18;
-
-    /**
-     * @dev Dispute voting period duration (50 blocks).
-     */
     uint256 public constant DISPUTE_VOTING_PERIOD = 50;
-
-    /**
-     * @dev Slash percentage for losing disputes (10%).
-     */
     uint256 public constant SLASH_PERCENTAGE = 10;
-
-    /**
-     * @dev Percentage divisor for calculations.
-     */
     uint256 private constant PERCENTAGE_DIVISOR = 100;
+    uint256 private constant VOTE_THRESHOLD_DIVISOR = 2; // 50% threshold
 
-    /**
-     * @dev Minimum votes required divisor (50% threshold).
-     */
-    uint256 private constant VOTE_THRESHOLD_DIVISOR = 2;
-
-    /**
-     * @dev Counter for dispute IDs.
-     */
     uint256 private disputeCounter;
-
-    /**
-     * @dev Mapping from dispute ID to dispute data.
-     */
     mapping(uint256 => Dispute) private disputes;
-
-    /**
-     * @dev Mapping from proposal ID to dispute IDs.
-     */
     mapping(uint256 => uint256[]) private proposalToDisputes;
-
-    /**
-     * @dev Mapping from dispute ID and validator to vote data.
-     */
     mapping(uint256 => mapping(address => DisputeVote)) private disputeVotes;
-
-    /**
-     * @dev Mapping to track if validator has voted on a dispute.
-     */
     mapping(uint256 => mapping(address => bool)) private hasVoted;
 
-    /**
-     * @dev GLT token contract.
-     */
     IERC20 public immutable gltToken;
-
-    /**
-     * @dev Validator registry contract.
-     */
     IValidatorRegistry public immutable validatorRegistry;
-
-    /**
-     * @dev Proposal manager contract.
-     */
     IProposalManager public immutable proposalManager;
 
-    /**
-     * @dev Modifier to restrict functions to active validators.
-     */
     modifier onlyActiveValidator() {
         require(validatorRegistry.isActiveValidator(msg.sender), CallerNotActiveValidator());
         _;
@@ -121,16 +69,9 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
         nonReentrant
         returns (uint256 disputeId)
     {
-        // Validate challenge stake
         _validateChallengeStake(challengeStake);
-
-        // Verify proposal can be disputed and get proposal info
         IProposalManager.Proposal memory proposal = _validateProposalDisputable(proposalId);
-
-        // Transfer challenge stake from challenger
         gltToken.safeTransferFrom(msg.sender, address(this), challengeStake);
-
-        // Create dispute
         disputeId = _createDisputeRecord(proposalId, proposal.proposer, challengeStake);
 
         emit DisputeCreated(disputeId, proposalId, msg.sender, challengeStake);
@@ -150,15 +91,12 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
         onlyActiveValidator
         nonReentrant
     {
-        // Validate dispute and voting eligibility
         Dispute storage dispute = _validateVotingEligibility(disputeId);
 
-        // Verify signature
         if (!_verifyDisputeVoteSignature(disputeId, msg.sender, supportChallenge, signature)) {
             revert InvalidSignature();
         }
 
-        // Record vote
         _recordVote(disputeId, dispute, supportChallenge, signature);
 
         emit DisputeVoteCast(disputeId, msg.sender, supportChallenge);
@@ -168,19 +106,16 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
      * @inheritdoc IDisputeResolver
      */
     function resolveDispute(uint256 disputeId) external nonReentrant {
-        // Validate dispute can be resolved
         Dispute storage dispute = _validateDisputeResolvable(disputeId);
 
         dispute.state = DisputeState.VotingComplete;
 
-        // Determine outcome and process resolution
         bool challengerWon = _determineDisputeOutcome(dispute);
         uint256 slashAmount = _calculateSlashAmount(dispute.challengeStake);
 
         dispute.challengerWon = challengerWon;
         dispute.slashAmount = slashAmount;
 
-        // Process rewards and penalties
         _processDisputeResolution(disputeId, dispute, challengerWon, slashAmount);
 
         dispute.state = DisputeState.Resolved;
@@ -202,7 +137,6 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
 
         dispute.state = DisputeState.Cancelled;
 
-        // Return challenge stake to challenger
         gltToken.safeTransfer(dispute.challenger, dispute.challengeStake);
 
         emit DisputeResolved(disputeId, false, 0);
@@ -421,7 +355,6 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
             timestamp: block.timestamp
         });
 
-        // Update vote counts
         if (supportChallenge) {
             dispute.votesFor++;
         } else {
@@ -455,7 +388,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
      */
     function _determineDisputeOutcome(Dispute storage dispute) private view returns (bool) {
         uint256 totalActiveValidators = validatorRegistry.getActiveValidators().length;
-        // Calculate if at least 50% of validators voted to reject (support the challenge)
+        // At least 50% of validators must vote to reject (support the challenge)
         // Using multiplication to avoid division rounding issues
         return dispute.votesFor * VOTE_THRESHOLD_DIVISOR >= totalActiveValidators;
     }
@@ -510,7 +443,6 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
             }
         }
 
-        // Return challenge stake to challenger
         gltToken.safeTransfer(dispute.challenger, dispute.challengeStake);
         emit RewardDistributed(disputeId, dispute.challenger, dispute.challengeStake);
     }
@@ -524,11 +456,10 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
     function _processProposerVictory(uint256 disputeId, Dispute storage dispute, uint256 slashAmount) private {
         uint256 rewardAmount = dispute.challengeStake - slashAmount;
 
-        // Transfer reward to proposer
         gltToken.safeTransfer(dispute.proposer, rewardAmount);
         emit RewardDistributed(disputeId, dispute.proposer, rewardAmount);
 
-        // Transfer slashed amount to treasury (owner)
+        // Slashed amount goes to treasury (owner)
         gltToken.safeTransfer(owner(), slashAmount);
     }
 }
