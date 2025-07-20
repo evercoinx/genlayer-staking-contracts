@@ -241,7 +241,10 @@ interface IValidatorRegistry {
      * @param validator The validator address.
      * @return info The validator info including metadata.
      */
-    function getValidatorInfoWithMetadata(address validator) external view returns (IValidator.ValidatorInfo memory info);
+    function getValidatorInfoWithMetadata(address validator)
+        external
+        view
+        returns (IValidator.ValidatorInfo memory info);
 
     /**
      * @dev Returns the beacon proxy address for a validator.

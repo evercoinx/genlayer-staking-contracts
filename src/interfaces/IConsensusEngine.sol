@@ -38,10 +38,7 @@ interface IConsensusEngine {
      * @param endBlock The ending block number.
      */
     event ConsensusRoundStarted(
-        uint256 indexed proposalId,
-        uint256 indexed roundId,
-        uint256 startBlock,
-        uint256 endBlock
+        uint256 indexed proposalId, uint256 indexed roundId, uint256 startBlock, uint256 endBlock
     );
 
     /**
@@ -61,11 +58,7 @@ interface IConsensusEngine {
      * @param votesAgainst Number of votes against.
      */
     event ConsensusFinalized(
-        uint256 indexed roundId,
-        uint256 indexed proposalId,
-        bool approved,
-        uint256 votesFor,
-        uint256 votesAgainst
+        uint256 indexed roundId, uint256 indexed proposalId, bool approved, uint256 votesFor, uint256 votesAgainst
     );
 
     /**
@@ -168,9 +161,10 @@ interface IConsensusEngine {
      * @return votesAgainst Number of votes against.
      * @return totalValidators Total number of eligible validators.
      */
-    function getVoteCounts(
-        uint256 roundId
-    ) external view returns (uint256 votesFor, uint256 votesAgainst, uint256 totalValidators);
+    function getVoteCounts(uint256 roundId)
+        external
+        view
+        returns (uint256 votesFor, uint256 votesAgainst, uint256 totalValidators);
 
     /**
      * @dev Returns the voting period duration in blocks.
@@ -204,5 +198,8 @@ interface IConsensusEngine {
         address validator,
         bool support,
         bytes calldata signature
-    ) external view returns (bool isValid);
+    )
+        external
+        view
+        returns (bool isValid);
 }

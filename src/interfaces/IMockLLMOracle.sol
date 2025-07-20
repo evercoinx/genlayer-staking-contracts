@@ -56,7 +56,9 @@ interface IMockLLMOracle {
     function batchValidateProposals(
         uint256[] calldata proposalIds,
         bytes32[] calldata proposalHashes
-    ) external returns (bool[] memory results);
+    )
+        external
+        returns (bool[] memory results);
 
     /**
      * @dev View function to check if a proposal would be valid without emitting events.

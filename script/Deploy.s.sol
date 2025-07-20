@@ -74,7 +74,7 @@ contract Deploy is Script {
         // 8. Update slasher role in ValidatorRegistry to DisputeResolver
         validatorRegistry.setSlasher(address(disputeResolver));
         console2.log("Updated ValidatorRegistry slasher to DisputeResolver");
-        
+
         // 9. Set active validator limit to 5 as per PRD
         validatorRegistry.setActiveValidatorLimit(5);
         console2.log("Set active validator limit to 5 (top-N selection)");

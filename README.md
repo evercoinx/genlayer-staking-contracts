@@ -29,9 +29,9 @@ This project implements a decentralized consensus system where validators stake 
 ## Contract Interactions
 
 ```
-┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  GLTToken   │────▶│ValidatorRegistry │◀────│ ProposalManager │
-└─────────────┘     └──────────────────┘     └─────────────────┘
+┌─────────────┐      ┌───────────────────┐      ┌─────────────────┐
+│  GLTToken   │────▶│ ValidatorRegistry │◀────│ ProposalManager │
+└─────────────┘      └───────────────────┘      └─────────────────┘
                              │                         │
                              ▼                         ▼
                     ┌─────────────────┐       ┌──────────────┐
@@ -77,17 +77,20 @@ forge test --match-contract GLTTokenTest -vvv
 ## Deployment
 
 1. Set up environment variables:
+
 ```bash
 export PRIVATE_KEY=<your-private-key>
 export RPC_URL=<your-rpc-url>
 ```
 
 2. Deploy contracts:
+
 ```bash
 forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast --verify
 ```
 
 3. Verify deployment:
+
 ```bash
 forge verify-contract <contract-address> <contract-name> --chain <chain-id>
 ```
@@ -158,6 +161,7 @@ disputeResolver.voteOnDispute(disputeId, true, signature);
 ## Testing Coverage Target
 
 The project aims for >95% test coverage across all contracts:
+
 - Unit tests for individual contract functions
 - Integration tests for contract interactions
 - Fuzz tests for edge cases

@@ -52,10 +52,7 @@ interface IDisputeResolver {
      * @param challengeStake The amount staked for the challenge.
      */
     event DisputeCreated(
-        uint256 indexed disputeId,
-        uint256 indexed proposalId,
-        address indexed challenger,
-        uint256 challengeStake
+        uint256 indexed disputeId, uint256 indexed proposalId, address indexed challenger, uint256 challengeStake
     );
 
     /**
@@ -195,7 +192,10 @@ interface IDisputeResolver {
     function getDisputeVote(
         uint256 disputeId,
         address validator
-    ) external view returns (bool hasVoted, bool supportChallenge);
+    )
+        external
+        view
+        returns (bool hasVoted, bool supportChallenge);
 
     /**
      * @dev Returns the minimum challenge stake required.

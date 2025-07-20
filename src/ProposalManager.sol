@@ -57,10 +57,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @dev Modifier to restrict functions to active validators.
      */
     modifier onlyActiveValidator() {
-        require(
-            validatorRegistry.isActiveValidator(msg.sender),
-            CallerNotActiveValidator()
-        );
+        require(validatorRegistry.isActiveValidator(msg.sender), CallerNotActiveValidator());
         _;
     }
 
@@ -78,11 +75,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @param _llmOracle Address of the LLM oracle contract.
      * @param _proposalManager Address authorized to manage proposals.
      */
-    constructor(
-        address _validatorRegistry,
-        address _llmOracle,
-        address _proposalManager
-    ) Ownable(msg.sender) {
+    constructor(address _validatorRegistry, address _llmOracle, address _proposalManager) Ownable(msg.sender) {
         require(
             _validatorRegistry != address(0) && _llmOracle != address(0) && _proposalManager != address(0),
             ZeroAddress()
@@ -104,10 +97,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IProposalManager
      */
-    function createProposal(
-        bytes32 contentHash,
-        string calldata metadata
-    ) external returns (uint256 proposalId) {
+    function createProposal(bytes32 contentHash, string calldata metadata) external returns (uint256 proposalId) {
         if (contentHash == bytes32(0)) {
             revert InvalidContentHash();
         }
@@ -289,9 +279,8 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      */
     function canChallenge(uint256 proposalId) external view returns (bool) {
         Proposal memory proposal = proposals[proposalId];
-        return proposal.id != 0 &&
-            proposal.state == ProposalState.OptimisticApproved &&
-            block.number <= proposal.challengeWindowEnd;
+        return proposal.id != 0 && proposal.state == ProposalState.OptimisticApproved
+            && block.number <= proposal.challengeWindowEnd;
     }
 
     /**
@@ -299,9 +288,8 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      */
     function canFinalize(uint256 proposalId) external view returns (bool) {
         Proposal memory proposal = proposals[proposalId];
-        return proposal.id != 0 &&
-            proposal.state == ProposalState.OptimisticApproved &&
-            block.number > proposal.challengeWindowEnd;
+        return proposal.id != 0 && proposal.state == ProposalState.OptimisticApproved
+            && block.number > proposal.challengeWindowEnd;
     }
 
     /**
@@ -310,11 +298,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @param fromState The previous state.
      * @param toState The new state.
      */
-    function _updateProposalStateArrays(
-        uint256 proposalId,
-        ProposalState fromState,
-        ProposalState toState
-    ) private {
+    function _updateProposalStateArrays(uint256 proposalId, ProposalState fromState, ProposalState toState) private {
         // Remove from old state array
         uint256[] storage fromArray = proposalsByState[fromState];
         for (uint256 i = 0; i < fromArray.length; i++) {

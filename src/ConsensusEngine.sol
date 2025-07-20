@@ -113,10 +113,10 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
         address _validatorRegistry,
         address _proposalManager,
         address _consensusInitiator
-    ) Ownable(msg.sender) {
-        if (_validatorRegistry == address(0) || 
-            _proposalManager == address(0) || 
-            _consensusInitiator == address(0)) {
+    )
+        Ownable(msg.sender)
+    {
+        if (_validatorRegistry == address(0) || _proposalManager == address(0) || _consensusInitiator == address(0)) {
             revert ZeroAddress();
         }
         validatorRegistry = IValidatorRegistry(_validatorRegistry);
@@ -155,7 +155,7 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
         }
 
         roundId = ++roundCounter;
-        
+
         ConsensusRound storage newRound = consensusRounds[roundId];
         newRound.proposalId = proposalId;
         newRound.startBlock = block.number;
@@ -178,7 +178,13 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
         uint256 roundId,
         bool support,
         bytes calldata signature
-    ) external onlyActiveValidator nonReentrant roundExists(roundId) roundNotFinalized(roundId) {
+    )
+        external
+        onlyActiveValidator
+        nonReentrant
+        roundExists(roundId)
+        roundNotFinalized(roundId)
+    {
         ConsensusRound storage round = consensusRounds[roundId];
         if (block.number > round.endBlock) {
             revert VotingPeriodEnded();
@@ -194,12 +200,8 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
 
         // Record vote
         round.hasVoted[msg.sender] = true;
-        roundVotes[roundId][msg.sender] = Vote({
-            validator: msg.sender,
-            support: support,
-            signature: signature,
-            timestamp: block.timestamp
-        });
+        roundVotes[roundId][msg.sender] =
+            Vote({ validator: msg.sender, support: support, signature: signature, timestamp: block.timestamp });
 
         // Update vote counts
         if (support) {
@@ -214,7 +216,13 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IConsensusEngine
      */
-    function finalizeConsensus(uint256 roundId) external nonReentrant roundExists(roundId) roundNotFinalized(roundId) returns (bool approved) {
+    function finalizeConsensus(uint256 roundId)
+        external
+        nonReentrant
+        roundExists(roundId)
+        roundNotFinalized(roundId)
+        returns (bool approved)
+    {
         ConsensusRound storage round = consensusRounds[roundId];
         if (block.number <= round.endBlock) {
             revert VotingPeriodActive();
@@ -229,7 +237,7 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
 
         // Check quorum
         bool hasQuorum = (totalVotes * 100) >= (totalValidators * QUORUM_PERCENTAGE);
-        
+
         // Proposal is approved if it has quorum and majority support
         approved = hasQuorum && (round.votesFor > round.votesAgainst);
 
@@ -248,10 +256,7 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IConsensusEngine
      */
-    function getVote(
-        uint256 roundId,
-        address validator
-    ) external view returns (bool hasVoted, bool support) {
+    function getVote(uint256 roundId, address validator) external view returns (bool hasVoted, bool support) {
         ConsensusRound storage round = consensusRounds[roundId];
         hasVoted = round.hasVoted[validator];
         if (hasVoted) {
@@ -262,9 +267,12 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IConsensusEngine
      */
-    function getVoteCounts(
-        uint256 roundId
-    ) external view roundExists(roundId) returns (uint256 votesFor, uint256 votesAgainst, uint256 totalValidators) {
+    function getVoteCounts(uint256 roundId)
+        external
+        view
+        roundExists(roundId)
+        returns (uint256 votesFor, uint256 votesAgainst, uint256 totalValidators)
+    {
         ConsensusRound storage round = consensusRounds[roundId];
         votesFor = round.votesFor;
         votesAgainst = round.votesAgainst;
@@ -290,9 +298,7 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
      */
     function canFinalizeRound(uint256 roundId) external view returns (bool) {
         ConsensusRound storage round = consensusRounds[roundId];
-        return round.proposalId != 0 && 
-               !round.finalized && 
-               block.number > round.endBlock;
+        return round.proposalId != 0 && !round.finalized && block.number > round.endBlock;
     }
 
     /**
@@ -303,7 +309,11 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
         address validator,
         bool support,
         bytes calldata signature
-    ) external view returns (bool) {
+    )
+        external
+        view
+        returns (bool)
+    {
         return _verifyVoteSignature(roundId, validator, support, signature);
     }
 
@@ -320,21 +330,18 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
         address validator,
         bool support,
         bytes memory signature
-    ) private view returns (bool) {
+    )
+        private
+        view
+        returns (bool)
+    {
         bytes32 messageHash = keccak256(
-            abi.encodePacked(
-                "GenLayerConsensusVote",
-                roundId,
-                validator,
-                support,
-                address(this),
-                block.chainid
-            )
+            abi.encodePacked("GenLayerConsensusVote", roundId, validator, support, address(this), block.chainid)
         );
-        
+
         bytes32 ethSignedMessageHash = messageHash.toEthSignedMessageHash();
         address recoveredSigner = ethSignedMessageHash.recover(signature);
-        
+
         return recoveredSigner == validator;
     }
 }

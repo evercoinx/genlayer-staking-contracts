@@ -107,7 +107,10 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
         string calldata _metadata,
         address _gltToken,
         address _registry
-    ) external initializer {
+    )
+        external
+        initializer
+    {
         __ReentrancyGuard_init();
 
         if (_validatorAddress == address(0) || _gltToken == address(0) || _registry == address(0)) {

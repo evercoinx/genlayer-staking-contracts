@@ -12,7 +12,7 @@ contract ValidatorTest is Test {
     Validator public validatorImplementation;
     ValidatorBeacon public beacon;
     GLTToken public gltToken;
-    
+
     address public validatorAddress;
     address public registry;
     address public unauthorized;
@@ -35,7 +35,7 @@ contract ValidatorTest is Test {
         beacon = new ValidatorBeacon(address(validatorImplementation), registry);
 
         // Mint tokens to validator
-        gltToken.mint(validatorAddress, 10000e18);
+        gltToken.mint(validatorAddress, 10_000e18);
     }
 
     function _deployValidatorProxy(uint256 stakeAmount, string memory metadata) internal returns (IValidator) {
@@ -49,12 +49,7 @@ contract ValidatorTest is Test {
         BeaconProxy proxy = new BeaconProxy(
             address(beacon),
             abi.encodeWithSelector(
-                IValidator.initialize.selector,
-                validatorAddress,
-                stakeAmount,
-                metadata,
-                address(gltToken),
-                registry
+                IValidator.initialize.selector, validatorAddress, stakeAmount, metadata, address(gltToken), registry
             )
         );
 
@@ -99,12 +94,7 @@ contract ValidatorTest is Test {
         new BeaconProxy(
             address(beacon),
             abi.encodeWithSelector(
-                IValidator.initialize.selector,
-                validatorAddress,
-                stakeAmount,
-                "",
-                address(gltToken),
-                registry
+                IValidator.initialize.selector, validatorAddress, stakeAmount, "", address(gltToken), registry
             )
         );
     }
@@ -116,12 +106,7 @@ contract ValidatorTest is Test {
         new BeaconProxy(
             address(beacon),
             abi.encodeWithSelector(
-                IValidator.initialize.selector,
-                address(0),
-                stakeAmount,
-                "",
-                address(gltToken),
-                registry
+                IValidator.initialize.selector, address(0), stakeAmount, "", address(gltToken), registry
             )
         );
     }
@@ -403,7 +388,7 @@ contract ValidatorTest is Test {
     }
 
     function testFuzz_Initialize(uint256 stakeAmount, string memory metadata) public {
-        stakeAmount = bound(stakeAmount, MINIMUM_STAKE, 10000e18);
+        stakeAmount = bound(stakeAmount, MINIMUM_STAKE, 10_000e18);
         vm.assume(bytes(metadata).length <= 100); // Reasonable metadata length
 
         IValidator validator = _deployValidatorProxy(stakeAmount, metadata);
@@ -438,9 +423,9 @@ contract ValidatorTest is Test {
     }
 
     function testFuzz_RequestUnstake(uint256 initialStake, uint256 unstakeAmount) public {
-        initialStake = bound(initialStake, MINIMUM_STAKE, 10000e18);
+        initialStake = bound(initialStake, MINIMUM_STAKE, 10_000e18);
         unstakeAmount = bound(unstakeAmount, 1, initialStake);
-        
+
         uint256 remainingStake = initialStake - unstakeAmount;
         // Skip if would leave insufficient remaining stake
         if (remainingStake > 0 && remainingStake < MINIMUM_STAKE) {

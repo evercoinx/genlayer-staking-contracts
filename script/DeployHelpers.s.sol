@@ -15,7 +15,7 @@ contract DeployHelpers is Script {
     // Addresses from deployment (update these after deployment)
     address constant GLT_TOKEN = address(0);
     address constant VALIDATOR_REGISTRY = address(0);
-    
+
     // Test validator addresses
     address constant VALIDATOR_1 = address(0x1111111111111111111111111111111111111111);
     address constant VALIDATOR_2 = address(0x2222222222222222222222222222222222222222);
@@ -23,43 +23,45 @@ contract DeployHelpers is Script {
 
     /**
      * @dev Distributes GLT tokens to test validators.
-     * Run with: forge script script/DeployHelpers.s.sol:DeployHelpers --sig "distributeTokens()" --rpc-url $RPC_URL --broadcast
+     * Run with: forge script script/DeployHelpers.s.sol:DeployHelpers --sig "distributeTokens()" --rpc-url $RPC_URL
+     * --broadcast
      */
     function distributeTokens() external {
         require(GLT_TOKEN != address(0), "Update GLT_TOKEN address");
-        
+
         uint256 deployerPrivateKey = uint256(vm.envBytes32("PRIVATE_KEY"));
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         vm.startBroadcast(deployerPrivateKey);
 
         GLTToken gltToken = GLTToken(GLT_TOKEN);
         uint256 amountPerValidator = 10_000e18; // 10,000 GLT per validator
 
         console2.log("Distributing GLT tokens to validators...");
-        
+
         gltToken.mint(VALIDATOR_1, amountPerValidator);
         console2.log("Minted", amountPerValidator / 1e18, "GLT to validator 1:", VALIDATOR_1);
-        
+
         gltToken.mint(VALIDATOR_2, amountPerValidator);
         console2.log("Minted", amountPerValidator / 1e18, "GLT to validator 2:", VALIDATOR_2);
-        
+
         gltToken.mint(VALIDATOR_3, amountPerValidator);
         console2.log("Minted", amountPerValidator / 1e18, "GLT to validator 3:", VALIDATOR_3);
 
         vm.stopBroadcast();
-        
+
         console2.log("Token distribution complete!");
     }
 
     /**
      * @dev Registers test validators (requires validators to have approved GLT tokens).
-     * Run with: forge script script/DeployHelpers.s.sol:DeployHelpers --sig "registerValidators()" --rpc-url $RPC_URL --broadcast
+     * Run with: forge script script/DeployHelpers.s.sol:DeployHelpers --sig "registerValidators()" --rpc-url $RPC_URL
+     * --broadcast
      */
     function registerValidators() external {
         require(GLT_TOKEN != address(0), "Update GLT_TOKEN address");
         require(VALIDATOR_REGISTRY != address(0), "Update VALIDATOR_REGISTRY address");
-        
+
         // This would need to be run by each validator individually
         // This is just an example of how to register
         console2.log("Validators need to:");
@@ -77,9 +79,9 @@ contract DeployHelpers is Script {
      */
     function checkValidatorStatus() external view {
         require(VALIDATOR_REGISTRY != address(0), "Update VALIDATOR_REGISTRY address");
-        
+
         ValidatorRegistry registry = ValidatorRegistry(VALIDATOR_REGISTRY);
-        
+
         console2.log("Validator Registry Status:");
         console2.log("Total validators:", registry.getTotalValidators());
         console2.log("Total stake:", registry.getTotalStake());

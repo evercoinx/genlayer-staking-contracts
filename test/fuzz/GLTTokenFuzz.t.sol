@@ -87,7 +87,9 @@ contract GLTTokenFuzzTest is Test {
         uint256 mintAmount,
         uint256 approveAmount,
         uint256 transferAmount
-    ) public {
+    )
+        public
+    {
         // Setup constraints
         mintAmount = bound(mintAmount, 1, 50_000_000e18);
         approveAmount = bound(approveAmount, 1, mintAmount);
@@ -149,7 +151,7 @@ contract GLTTokenFuzzTest is Test {
 
         // Initial mint to enable operations
         vm.prank(owner);
-        token.mint(user1, 10000e18);
+        token.mint(user1, 10_000e18);
 
         // Set up initial allowances
         vm.prank(user1);

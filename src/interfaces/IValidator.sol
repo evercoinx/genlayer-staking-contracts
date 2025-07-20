@@ -105,7 +105,8 @@ interface IValidator {
         string calldata _metadata,
         address _gltToken,
         address _registry
-    ) external;
+    )
+        external;
 
     /**
      * @dev Increases the validator's stake.
