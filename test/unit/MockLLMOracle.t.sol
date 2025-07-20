@@ -148,7 +148,7 @@ contract MockLLMOracleTest is Test {
     }
 
     function testFuzz_BatchValidation(uint8 batchSize, uint256 seed) public {
-        vm.assume(batchSize > 0 && batchSize <= 100);
+        batchSize = uint8(bound(batchSize, 1, 100));
 
         uint256[] memory proposalIds = new uint256[](batchSize);
         bytes32[] memory hashes = new bytes32[](batchSize);

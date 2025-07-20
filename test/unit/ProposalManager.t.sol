@@ -524,7 +524,7 @@ contract ProposalManagerTest is Test {
     }
 
     function testFuzz_ChallengeWindow(uint256 blockAdvance) public {
-        vm.assume(blockAdvance < 1000);
+        blockAdvance = bound(blockAdvance, 0, 999);
 
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");

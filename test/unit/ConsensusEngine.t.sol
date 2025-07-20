@@ -508,8 +508,12 @@ contract ConsensusEngineTest is Test {
     }
 
     function testFuzz_VotingScenarios(uint8 votesFor, uint8 votesAgainst) public {
-        vm.assume(votesFor <= 3 && votesAgainst <= 3);
-        vm.assume(votesFor + votesAgainst <= 3);
+        votesFor = uint8(bound(votesFor, 0, 3));
+        votesAgainst = uint8(bound(votesAgainst, 0, 3));
+        // Ensure total votes don't exceed 3
+        if (votesFor + votesAgainst > 3) {
+            votesAgainst = 3 - votesFor;
+        }
 
         uint256 proposalId = _createChallengedProposal();
 

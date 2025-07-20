@@ -78,8 +78,8 @@ contract ConsensusEngineFuzzTest is Test {
     function testFuzz_VotingWithValidatorCounts(uint8 validatorCount, uint8 votingCount) public {
         // Constraints - limit to activeValidatorLimit (5)
         uint256 activeLimit = validatorRegistry.getActiveValidatorLimit();
-        vm.assume(validatorCount >= 3 && validatorCount <= activeLimit);
-        vm.assume(votingCount <= validatorCount);
+        validatorCount = uint8(bound(validatorCount, 3, activeLimit));
+        votingCount = uint8(bound(votingCount, 0, validatorCount));
 
         // Setup validators with decreasing stakes to ensure order
         uint256[] memory privateKeys = new uint256[](validatorCount);
@@ -143,7 +143,7 @@ contract ConsensusEngineFuzzTest is Test {
 
     // Fuzz test: Vote timing
     function testFuzz_VoteTiming(uint256 blockDelay) public {
-        vm.assume(blockDelay < 1000);
+        blockDelay = bound(blockDelay, 0, 999);
 
         // Setup validators
         address validator1 = _setupValidator(0x1111, 2000e18);
@@ -257,9 +257,9 @@ contract ConsensusEngineFuzzTest is Test {
         view
     {
         // Constraints
-        vm.assume(validatorKey != 0 && validatorKey < type(uint256).max / 2);
-        vm.assume(signerKey != 0 && signerKey < type(uint256).max / 2);
-        vm.assume(roundId > 0 && roundId < 1_000_000);
+        validatorKey = bound(validatorKey, 1, type(uint256).max / 2);
+        signerKey = bound(signerKey, 1, type(uint256).max / 2);
+        roundId = bound(roundId, 1, 999_999);
 
         address validator = vm.addr(validatorKey);
         address signer = vm.addr(signerKey);

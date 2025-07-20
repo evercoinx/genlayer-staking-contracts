@@ -605,8 +605,15 @@ contract DisputeResolverTest is Test {
     }
 
     function testFuzz_VotingOutcome(uint8 votesFor, uint8 votesAgainst) public {
-        vm.assume(votesFor <= 4 && votesAgainst <= 4);
-        vm.assume(votesFor + votesAgainst <= 4 && votesFor + votesAgainst > 0);
+        votesFor = uint8(bound(votesFor, 0, 4));
+        votesAgainst = uint8(bound(votesAgainst, 0, 4));
+        // Ensure total votes are in range [1, 4]
+        uint8 total = votesFor + votesAgainst;
+        if (total == 0) {
+            votesFor = 1;
+        } else if (total > 4) {
+            votesAgainst = 4 - votesFor;
+        }
 
         uint256 proposalId = _createOptimisticallyApprovedProposal();
 

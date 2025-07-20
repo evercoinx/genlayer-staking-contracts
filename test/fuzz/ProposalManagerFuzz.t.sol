@@ -88,7 +88,7 @@ contract ProposalManagerFuzzTest is Test {
 
     // Fuzz test: Challenge window timing
     function testFuzz_ChallengeWindowTiming(uint256 blockAdvance) public {
-        vm.assume(blockAdvance < 1000); // Reasonable block advancement
+        blockAdvance = bound(blockAdvance, 0, 999); // Reasonable block advancement
 
         // Create and approve proposal
         vm.prank(validator1);
@@ -180,7 +180,7 @@ contract ProposalManagerFuzzTest is Test {
 
     // Fuzz test: Metadata size limits
     function testFuzz_MetadataSize(uint256 size, uint256 seed) public {
-        vm.assume(size > 0 && size <= 100_000); // Up to 100KB
+        size = bound(size, 1, 100_000); // Up to 100KB
 
         // Generate pseudo-random metadata of specified size
         bytes memory metadataBytes = new bytes(size);
