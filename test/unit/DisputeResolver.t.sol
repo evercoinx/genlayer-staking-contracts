@@ -67,7 +67,7 @@ contract DisputeResolverTest is Test {
 
         gltToken = new GLTToken(deployer);
 
-        validatorRegistry = new ValidatorRegistry(address(gltToken), deployer);
+        validatorRegistry = new ValidatorRegistry(address(gltToken), deployer, 5);
 
         llmOracle = new MockLLMOracle();
 

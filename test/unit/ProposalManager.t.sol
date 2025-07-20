@@ -41,7 +41,7 @@ contract ProposalManagerTest is Test {
     function setUp() public {
         gltToken = new GLTToken(deployer);
 
-        validatorRegistry = new ValidatorRegistry(address(gltToken), slasher);
+        validatorRegistry = new ValidatorRegistry(address(gltToken), slasher, 5);
 
         llmOracle = new MockLLMOracle();
 

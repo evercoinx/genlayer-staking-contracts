@@ -23,7 +23,7 @@ contract ValidatorRegistryFuzzTest is Test {
 
     function setUp() public {
         gltToken = new GLTToken(owner);
-        registry = new ValidatorRegistry(address(gltToken), owner);
+        registry = new ValidatorRegistry(address(gltToken), owner, 5);
         registry.setSlasher(slasher);
     }
 

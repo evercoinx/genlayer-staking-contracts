@@ -33,6 +33,7 @@ contract ValidatorRegistryTest is Test {
     event UnstakeCompleted(address indexed validator, uint256 unstakedAmount);
     event ValidatorSlashed(address indexed validator, uint256 slashedAmount, string reason);
     event ActiveValidatorSetUpdated(address[] validators, uint256 blockNumber);
+    event SlasherUpdated(address indexed oldSlasher, address indexed newSlasher);
 
     function setUp() public {
         slasher = makeAddr("slasher");
@@ -41,7 +42,7 @@ contract ValidatorRegistryTest is Test {
         validator3 = makeAddr("validator3");
 
         gltToken = new GLTToken(address(this));
-        registry = new ValidatorRegistry(address(gltToken), slasher);
+        registry = new ValidatorRegistry(address(gltToken), slasher, 5);
 
         gltToken.mint(validator1, 10_000e18);
         gltToken.mint(validator2, 10_000e18);
@@ -51,10 +52,26 @@ contract ValidatorRegistryTest is Test {
     function test_Constructor() public view {
         assertEq(address(registry.gltToken()), address(gltToken));
         assertEq(registry.slasher(), slasher);
-        assertEq(registry.getMinimumStake(), MINIMUM_STAKE);
-        assertEq(registry.getBondingPeriod(), BONDING_PERIOD);
-        assertEq(registry.getMaxValidators(), MAX_VALIDATORS);
+        assertEq(registry.activeValidatorLimit(), 5);
+        assertEq(registry.MINIMUM_STAKE(), MINIMUM_STAKE);
+        assertEq(registry.BONDING_PERIOD(), BONDING_PERIOD);
+        assertEq(registry.MAX_VALIDATORS(), MAX_VALIDATORS);
         assertNotEq(address(registry.getValidatorBeacon()), address(0));
+    }
+
+    function test_RevertWhen_Constructor_ZeroGLTToken() public {
+        vm.expectRevert(IValidatorRegistry.ZeroGLTToken.selector);
+        new ValidatorRegistry(address(0), slasher, 5);
+    }
+
+    function test_RevertWhen_Constructor_ZeroSlasher() public {
+        vm.expectRevert(IValidatorRegistry.ZeroSlasher.selector);
+        new ValidatorRegistry(address(gltToken), address(0), 5);
+    }
+
+    function test_RevertWhen_Constructor_ZeroActiveValidatorLimit() public {
+        vm.expectRevert(IValidatorRegistry.ZeroActiveValidatorLimit.selector);
+        new ValidatorRegistry(address(gltToken), slasher, 0);
     }
 
     function test_RegisterValidator() public {
@@ -74,7 +91,7 @@ contract ValidatorRegistryTest is Test {
         vm.stopPrank();
 
         assertEq(registry.getTotalValidators(), 1);
-        assertEq(registry.getTotalStake(), stakeAmount);
+        assertEq(registry.totalStaked(), stakeAmount);
         assertTrue(registry.isActiveValidator(validator1));
 
         address proxy = registry.getValidatorProxy(validator1);
@@ -145,7 +162,7 @@ contract ValidatorRegistryTest is Test {
 
         IValidator.ValidatorInfo memory info = registry.getValidatorInfoWithMetadata(validator1);
         assertEq(info.stakedAmount, initialStake + additionalStake);
-        assertEq(registry.getTotalStake(), initialStake + additionalStake);
+        assertEq(registry.totalStaked(), initialStake + additionalStake);
     }
 
     function test_RevertWhen_IncreaseStake_ValidatorNotFound() public {
@@ -230,7 +247,7 @@ contract ValidatorRegistryTest is Test {
         uint256 balanceAfter = gltToken.balanceOf(validator1);
         assertEq(balanceAfter - balanceBefore, initialStake);
 
-        assertEq(registry.getTotalStake(), 0);
+        assertEq(registry.totalStaked(), 0);
 
         IValidator.ValidatorInfo memory info = registry.getValidatorInfoWithMetadata(validator1);
         assertEq(uint8(info.status), uint8(IValidator.ValidatorStatus.Inactive));
@@ -255,7 +272,7 @@ contract ValidatorRegistryTest is Test {
 
         IValidator.ValidatorInfo memory info = registry.getValidatorInfoWithMetadata(validator1);
         assertEq(info.stakedAmount, initialStake - slashAmount);
-        assertEq(registry.getTotalStake(), initialStake - slashAmount);
+        assertEq(registry.totalStaked(), initialStake - slashAmount);
 
         assertTrue(registry.isActiveValidator(validator1));
     }
@@ -342,21 +359,24 @@ contract ValidatorRegistryTest is Test {
         registry.setSlasher(newSlasher);
         vm.stopPrank();
 
+        vm.expectEmit(true, true, false, true);
+        emit SlasherUpdated(slasher, newSlasher);
+
         registry.setSlasher(newSlasher);
         assertEq(registry.slasher(), newSlasher);
     }
 
     function test_RevertWhen_SetSlasher_ZeroAddress() public {
-        vm.expectRevert(IValidatorRegistry.ZeroAddress.selector);
+        vm.expectRevert(IValidatorRegistry.ZeroSlasher.selector);
         registry.setSlasher(address(0));
     }
 
     function test_GettersReturnCorrectValues() public view {
-        assertEq(registry.getMinimumStake(), MINIMUM_STAKE);
-        assertEq(registry.getBondingPeriod(), BONDING_PERIOD);
-        assertEq(registry.getMaxValidators(), MAX_VALIDATORS);
+        assertEq(registry.MINIMUM_STAKE(), MINIMUM_STAKE);
+        assertEq(registry.BONDING_PERIOD(), BONDING_PERIOD);
+        assertEq(registry.MAX_VALIDATORS(), MAX_VALIDATORS);
         assertEq(registry.getTotalValidators(), 0);
-        assertEq(registry.getTotalStake(), 0);
+        assertEq(registry.totalStaked(), 0);
         assertEq(registry.getActiveValidators().length, 0);
     }
 
@@ -405,7 +425,7 @@ contract ValidatorRegistryTest is Test {
         vm.stopPrank();
 
         assertEq(registry.getTotalValidators(), 1);
-        assertEq(registry.getTotalStake(), stakeAmount);
+        assertEq(registry.totalStaked(), stakeAmount);
         assertTrue(registry.isActiveValidator(validator1));
     }
 
@@ -421,7 +441,7 @@ contract ValidatorRegistryTest is Test {
 
         IValidator.ValidatorInfo memory info = registry.getValidatorInfoWithMetadata(validator1);
         assertEq(info.stakedAmount, initialStake + additionalStake);
-        assertEq(registry.getTotalStake(), initialStake + additionalStake);
+        assertEq(registry.totalStaked(), initialStake + additionalStake);
     }
 
     function test_GetTopValidators() public {
@@ -551,5 +571,16 @@ contract ValidatorRegistryTest is Test {
         address[] memory top2 = registry.getTopValidators(2);
         assertEq(top2[0], validator3);
         assertEq(top2[1], validator1);
+    }
+
+    function test_RevertWhen_UpdateActiveValidatorSet_NotOwner() public {
+        vm.startPrank(validator1);
+        vm.expectRevert();
+        registry.updateActiveValidatorSet();
+        vm.stopPrank();
+    }
+
+    function test_UpdateActiveValidatorSet_OnlyOwner() public {
+        registry.updateActiveValidatorSet();
     }
 }

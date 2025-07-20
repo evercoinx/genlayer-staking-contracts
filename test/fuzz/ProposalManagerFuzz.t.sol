@@ -29,7 +29,7 @@ contract ProposalManagerFuzzTest is Test {
 
     function setUp() public {
         gltToken = new GLTToken(owner);
-        validatorRegistry = new ValidatorRegistry(address(gltToken), owner);
+        validatorRegistry = new ValidatorRegistry(address(gltToken), owner, 5);
         llmOracle = new MockLLMOracle();
         proposalManager = new ProposalManager(address(validatorRegistry), address(llmOracle), proposalManagerRole);
 

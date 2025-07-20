@@ -37,7 +37,7 @@ contract DisputeResolverFuzzTest is Test {
 
     function setUp() public {
         gltToken = new GLTToken(owner);
-        validatorRegistry = new ValidatorRegistry(address(gltToken), owner);
+        validatorRegistry = new ValidatorRegistry(address(gltToken), owner, 5);
         llmOracle = new MockLLMOracle();
         proposalManager = new ProposalManager(address(validatorRegistry), address(llmOracle), proposalManagerRole);
         disputeResolver = new DisputeResolver(address(gltToken), address(validatorRegistry), address(proposalManager));
@@ -100,7 +100,7 @@ contract DisputeResolverFuzzTest is Test {
     }
 
     function testFuzz_VotingPatterns(uint8 totalValidators, uint8 votingValidators, uint256 votingPattern) public {
-        uint256 activeLimit = validatorRegistry.getActiveValidatorLimit();
+        uint256 activeLimit = validatorRegistry.activeValidatorLimit();
         totalValidators = uint8(bound(totalValidators, 3, activeLimit));
         votingValidators = uint8(bound(votingValidators, 1, totalValidators));
         uint256[] memory privateKeys = new uint256[](totalValidators);

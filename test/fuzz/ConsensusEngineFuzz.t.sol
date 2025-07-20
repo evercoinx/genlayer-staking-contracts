@@ -36,7 +36,7 @@ contract ConsensusEngineFuzzTest is Test {
 
     function setUp() public {
         gltToken = new GLTToken(owner);
-        validatorRegistry = new ValidatorRegistry(address(gltToken), owner);
+        validatorRegistry = new ValidatorRegistry(address(gltToken), owner, 5);
         llmOracle = new MockLLMOracle();
         proposalManager = new ProposalManager(address(validatorRegistry), address(llmOracle), proposalManagerRole);
         consensusEngine =
@@ -74,7 +74,7 @@ contract ConsensusEngineFuzzTest is Test {
     }
 
     function testFuzz_VotingWithValidatorCounts(uint8 validatorCount, uint8 votingCount) public {
-        uint256 activeLimit = validatorRegistry.getActiveValidatorLimit();
+        uint256 activeLimit = validatorRegistry.activeValidatorLimit();
         validatorCount = uint8(bound(validatorCount, 3, activeLimit));
         votingCount = uint8(bound(votingCount, 0, validatorCount));
 
@@ -162,7 +162,7 @@ contract ConsensusEngineFuzzTest is Test {
     }
 
     function testFuzz_RandomVotingPatterns(uint256 seed) public {
-        uint256 activeLimit = validatorRegistry.getActiveValidatorLimit();
+        uint256 activeLimit = validatorRegistry.activeValidatorLimit();
         uint256 validatorCount = activeLimit;
         uint256[] memory privateKeys = new uint256[](validatorCount);
         address[] memory validators = new address[](validatorCount);

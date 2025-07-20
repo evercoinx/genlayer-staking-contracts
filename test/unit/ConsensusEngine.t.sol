@@ -59,7 +59,7 @@ contract ConsensusEngineTest is Test {
 
         gltToken = new GLTToken(deployer);
 
-        validatorRegistry = new ValidatorRegistry(address(gltToken), slasher);
+        validatorRegistry = new ValidatorRegistry(address(gltToken), slasher, 5);
 
         llmOracle = new MockLLMOracle();
 

@@ -91,6 +91,13 @@ interface IValidatorRegistry {
     event ActiveValidatorLimitChanged(uint256 oldLimit, uint256 newLimit);
 
     /**
+     * @dev Emitted when the slasher is updated.
+     * @param oldSlasher The previous slasher address.
+     * @param newSlasher The new slasher address.
+     */
+    event SlasherUpdated(address indexed oldSlasher, address indexed newSlasher);
+
+    /**
      * @dev Error thrown when attempting to register with insufficient stake.
      */
     error InsufficientStake();
@@ -116,9 +123,14 @@ interface IValidatorRegistry {
     error BondingPeriodNotMet();
 
     /**
-     * @dev Error thrown when zero address is provided.
+     * @dev Error thrown when zero address is provided for GLT token.
      */
-    error ZeroAddress();
+    error ZeroGLTToken();
+
+    /**
+     * @dev Error thrown when zero address is provided for slasher.
+     */
+    error ZeroSlasher();
 
     /**
      * @dev Error thrown when zero amount is provided.
@@ -149,6 +161,11 @@ interface IValidatorRegistry {
      * @dev Error thrown when count parameter is invalid.
      */
     error InvalidCount();
+
+    /**
+     * @dev Error thrown when active validator limit is zero.
+     */
+    error ZeroActiveValidatorLimit();
 
     /**
      * @dev Registers a new validator with the specified stake.
@@ -182,7 +199,7 @@ interface IValidatorRegistry {
     function slashValidator(address validator, uint256 slashAmount, string calldata reason) external;
 
     /**
-     * @dev Updates the active validator set based on stake amounts.
+     * @dev Updates the active validator set based on stake amounts. Only callable by owner.
      */
     function updateActiveValidatorSet() external;
 
@@ -194,22 +211,10 @@ interface IValidatorRegistry {
     function getValidatorInfo(address validator) external view returns (ValidatorInfo memory info);
 
     /**
-     * @dev Returns the list of active validators.
-     * @return validators The array of active validator addresses.
-     */
-    function getActiveValidators() external view returns (address[] memory validators);
-
-    /**
      * @dev Returns the total number of registered validators.
      * @return count The total number of validators.
      */
     function getTotalValidators() external view returns (uint256 count);
-
-    /**
-     * @dev Returns the total amount staked across all validators.
-     * @return totalStake The total staked amount.
-     */
-    function getTotalStake() external view returns (uint256 totalStake);
 
     /**
      * @dev Checks if an address is an active validator.
@@ -218,23 +223,6 @@ interface IValidatorRegistry {
      */
     function isActiveValidator(address validator) external view returns (bool isActive);
 
-    /**
-     * @dev Returns the minimum stake required to become a validator.
-     * @return minStake The minimum stake amount.
-     */
-    function getMinimumStake() external view returns (uint256 minStake);
-
-    /**
-     * @dev Returns the bonding period duration.
-     * @return bondingPeriod The bonding period in seconds.
-     */
-    function getBondingPeriod() external view returns (uint256 bondingPeriod);
-
-    /**
-     * @dev Returns the maximum number of active validators.
-     * @return maxValidators The maximum number of validators.
-     */
-    function getMaxValidators() external view returns (uint256 maxValidators);
 
     /**
      * @dev Registers a new validator with metadata using beacon proxy pattern.
@@ -293,9 +281,28 @@ interface IValidatorRegistry {
      */
     function setActiveValidatorLimit(uint256 newLimit) external;
 
+
     /**
-     * @dev Returns the current active validator limit.
+     * @dev Sets a new slasher address. Only callable by owner.
+     * @param newSlasher The address to grant slashing privileges to.
+     */
+    function setSlasher(address newSlasher) external;
+
+    /**
+     * @dev Returns the active validator limit.
      * @return The active validator limit.
      */
-    function getActiveValidatorLimit() external view returns (uint256);
+    function activeValidatorLimit() external view returns (uint256);
+
+    /**
+     * @dev Returns the total amount staked across all validators.
+     * @return The total staked amount.
+     */
+    function totalStaked() external view returns (uint256);
+
+    /**
+     * @dev Returns the array of active validators.
+     * @return The array of active validator addresses.
+     */
+    function getActiveValidators() external view returns (address[] memory);
 }

@@ -19,20 +19,20 @@ import { ValidatorBeacon } from "./ValidatorBeacon.sol";
 contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    IERC20 public immutable gltToken;
-    ValidatorBeacon public immutable validatorBeacon;
-
     uint256 public constant MINIMUM_STAKE = 1000e18;
     uint256 public constant BONDING_PERIOD = 1;
     uint256 public constant MAX_VALIDATORS = 100;
     uint256 public constant SLASH_PERCENTAGE = 10;
 
-    uint256 public activeValidatorLimit = 5;
-    mapping(address => address) public validatorProxies;
-    address[] private validatorList;
-    address[] private activeValidators;
-    uint256 private totalStaked;
+    IERC20 public immutable gltToken;
+    ValidatorBeacon public immutable validatorBeacon;
+
     address public slasher;
+    uint256 public activeValidatorLimit;
+    mapping(address => address) public validatorProxies;
+    address[] private validators;
+    address[] public activeValidators;
+    uint256 public totalStaked;
 
     modifier onlySlasher() {
         require(msg.sender == slasher, CallerNotSlasher());
@@ -48,30 +48,36 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @dev Initializes the ValidatorRegistryBeacon.
      * @param _gltToken The address of the GLT token contract.
      * @param _slasher The address authorized to slash validators.
+     * @param _activeValidatorLimit The initial active validator limit.
      */
-    constructor(address _gltToken, address _slasher) Ownable(msg.sender) {
-        require(_gltToken != address(0) && _slasher != address(0), ZeroAddress());
+    constructor(address _gltToken, address _slasher, uint256 _activeValidatorLimit) Ownable(msg.sender) {
+        require(_gltToken != address(0), ZeroGLTToken());
         gltToken = IERC20(_gltToken);
+
+        require(_slasher != address(0), ZeroSlasher());
         slasher = _slasher;
+
+        require(_activeValidatorLimit != 0, ZeroActiveValidatorLimit());
+        activeValidatorLimit = _activeValidatorLimit;
 
         Validator validatorImplementation = new Validator();
         validatorBeacon = new ValidatorBeacon(address(validatorImplementation), address(this));
     }
 
     /**
-     * @dev Sets a new slasher address. Only callable by owner.
-     * @param newSlasher The address to grant slashing privileges to.
+     * @inheritdoc IValidatorRegistry
      */
-    function setSlasher(address newSlasher) external onlyOwner {
-        require(newSlasher != address(0), ZeroAddress());
+    function setSlasher(address newSlasher) external override onlyOwner {
+        require(newSlasher != address(0), ZeroSlasher());
+        address oldSlasher = slasher;
         slasher = newSlasher;
+        emit SlasherUpdated(oldSlasher, newSlasher);
     }
 
     /**
-     * @dev Sets the number of active validators. Only callable by owner.
-     * @param newLimit The new active validator limit (must be between 1 and MAX_VALIDATORS).
+     * @inheritdoc IValidatorRegistry
      */
-    function setActiveValidatorLimit(uint256 newLimit) external onlyOwner {
+    function setActiveValidatorLimit(uint256 newLimit) external override onlyOwner {
         require(newLimit != 0 && newLimit <= MAX_VALIDATORS, InvalidValidatorLimit());
         uint256 oldLimit = activeValidatorLimit;
         activeValidatorLimit = newLimit;
@@ -82,14 +88,14 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IValidatorRegistry
      */
-    function registerValidator(uint256 stakeAmount) external {
+    function registerValidator(uint256 stakeAmount) external override {
         registerValidatorWithMetadata(stakeAmount, "");
     }
 
     /**
      * @inheritdoc IValidatorRegistry
      */
-    function increaseStake(uint256 additionalStake) external validatorExists(msg.sender) nonReentrant {
+    function increaseStake(uint256 additionalStake) external override validatorExists(msg.sender) nonReentrant {
         require(additionalStake != 0, ZeroAmount());
 
         IValidator validator = IValidator(validatorProxies[msg.sender]);
@@ -109,7 +115,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IValidatorRegistry
      */
-    function requestUnstake(uint256 unstakeAmount) external validatorExists(msg.sender) nonReentrant {
+    function requestUnstake(uint256 unstakeAmount) external override validatorExists(msg.sender) nonReentrant {
         IValidator validator = IValidator(validatorProxies[msg.sender]);
 
         uint256 currentStake = validator.getStakedAmount();
@@ -128,7 +134,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IValidatorRegistry
      */
-    function completeUnstake() external validatorExists(msg.sender) nonReentrant {
+    function completeUnstake() external override validatorExists(msg.sender) nonReentrant {
         IValidator validator = IValidator(validatorProxies[msg.sender]);
 
         uint256 stakeBefore = validator.getStakedAmount();
@@ -152,6 +158,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         string calldata reason
     )
         external
+        override
         onlySlasher
         nonReentrant
         validatorExists(validatorAddress)
@@ -179,15 +186,14 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IValidatorRegistry
      */
-    function updateActiveValidatorSet() external {
+    function updateActiveValidatorSet() external override onlyOwner {
         _updateActiveValidatorSet();
     }
 
     /**
-     * @dev Upgrades the validator implementation for all beacon proxies.
-     * @param newImplementation The new validator implementation address.
+     * @inheritdoc IValidatorRegistry
      */
-    function upgradeValidatorImplementation(address newImplementation) external onlyOwner {
+    function upgradeValidatorImplementation(address newImplementation) external override onlyOwner {
         validatorBeacon.upgradeImplementation(newImplementation);
     }
 
@@ -197,6 +203,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     function getValidatorInfo(address validator)
         external
         view
+        override
         validatorExists(validator)
         returns (ValidatorInfo memory)
     {
@@ -213,13 +220,12 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Returns the validator info with metadata.
-     * @param validator The validator address.
-     * @return info The validator info including metadata.
+     * @inheritdoc IValidatorRegistry
      */
     function getValidatorInfoWithMetadata(address validator)
         external
         view
+        override
         validatorExists(validator)
         returns (IValidator.ValidatorInfo memory info)
     {
@@ -228,40 +234,24 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Returns the beacon proxy address for a validator.
-     * @param validator The validator address.
-     * @return proxy The beacon proxy address.
+     * @inheritdoc IValidatorRegistry
      */
-    function getValidatorProxy(address validator) external view returns (address proxy) {
+    function getValidatorProxy(address validator) external view override returns (address proxy) {
         return validatorProxies[validator];
     }
 
     /**
      * @inheritdoc IValidatorRegistry
      */
-    function getActiveValidators() external view returns (address[] memory) {
-        return activeValidators;
+    function getTotalValidators() external view override returns (uint256) {
+        return validators.length;
     }
 
     /**
      * @inheritdoc IValidatorRegistry
      */
-    function getTotalValidators() external view returns (uint256) {
-        return validatorList.length;
-    }
-
-    /**
-     * @inheritdoc IValidatorRegistry
-     */
-    function getTotalStake() external view returns (uint256) {
-        return totalStaked;
-    }
-
-    /**
-     * @inheritdoc IValidatorRegistry
-     */
-    function isActiveValidator(address validator) external view returns (bool) {
-        for (uint256 i = 0; i < activeValidators.length; i++) {
+    function isActiveValidator(address validator) external view override returns (bool) {
+        for (uint256 i = 0; i < activeValidators.length; ++i) {
             if (activeValidators[i] == validator) {
                 return true;
             }
@@ -269,28 +259,25 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         return false;
     }
 
+
     /**
-     * @dev Returns the current active validator limit.
-     * @return The active validator limit.
+     * @inheritdoc IValidatorRegistry
      */
-    function getActiveValidatorLimit() external view returns (uint256) {
-        return activeValidatorLimit;
+    function getActiveValidators() external view override returns (address[] memory) {
+        return activeValidators;
     }
 
     /**
-     * @dev Returns the validator beacon address.
-     * @return The beacon address.
+     * @inheritdoc IValidatorRegistry
      */
-    function getValidatorBeacon() external view returns (address) {
+    function getValidatorBeacon() external view override returns (address) {
         return address(validatorBeacon);
     }
 
     /**
-     * @dev Returns the top N validators based on stake amount.
-     * @param n The number of top validators to return.
-     * @return topValidators The addresses of the top N validators.
+     * @inheritdoc IValidatorRegistry
      */
-    function getTopValidators(uint256 n) external view returns (address[] memory topValidators) {
+    function getTopValidators(uint256 n) external view override returns (address[] memory topValidators) {
         require(n != 0, InvalidCount());
 
         uint256 count = n < activeValidators.length ? n : activeValidators.length;
@@ -302,17 +289,14 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Checks if an address is in the top N validators.
-     * @param validator The validator address to check.
-     * @param n The size of the top validator set.
-     * @return isTop True if the validator is in the top N.
+     * @inheritdoc IValidatorRegistry
      */
-    function isTopValidator(address validator, uint256 n) external view returns (bool isTop) {
+    function isTopValidator(address validator, uint256 n) external view override returns (bool isTop) {
         require(n != 0, InvalidCount());
 
         uint256 count = n < activeValidators.length ? n : activeValidators.length;
 
-        for (uint256 i = 0; i < count; i++) {
+        for (uint256 i = 0; i < count; ++i) {
             if (activeValidators[i] == validator) {
                 return true;
             }
@@ -323,30 +307,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IValidatorRegistry
      */
-    function getMinimumStake() external pure returns (uint256) {
-        return MINIMUM_STAKE;
-    }
-
-    /**
-     * @inheritdoc IValidatorRegistry
-     */
-    function getBondingPeriod() external pure returns (uint256) {
-        return BONDING_PERIOD;
-    }
-
-    /**
-     * @inheritdoc IValidatorRegistry
-     */
-    function getMaxValidators() external pure returns (uint256) {
-        return MAX_VALIDATORS;
-    }
-
-    /**
-     * @dev Registers a new validator with metadata using beacon proxy pattern.
-     * @param stakeAmount The amount of GLT tokens to stake.
-     * @param metadata The validator metadata.
-     */
-    function registerValidatorWithMetadata(uint256 stakeAmount, string memory metadata) public nonReentrant {
+    function registerValidatorWithMetadata(uint256 stakeAmount, string memory metadata) public override nonReentrant {
         require(stakeAmount >= MINIMUM_STAKE, InsufficientStake());
         require(validatorProxies[msg.sender] == address(0), ValidatorAlreadyRegistered());
 
@@ -362,7 +323,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         gltToken.safeTransfer(address(validatorProxy), stakeAmount);
 
         validatorProxies[msg.sender] = address(validatorProxy);
-        validatorList.push(msg.sender);
+        validators.push(msg.sender);
         totalStaked += stakeAmount;
 
         emit ValidatorRegistered(msg.sender, stakeAmount);
@@ -375,12 +336,13 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @dev Internal function to update the active validator set based on stake amounts.
      */
     function _updateActiveValidatorSet() private {
-        address[] memory eligibleValidators = new address[](validatorList.length);
-        uint256[] memory stakes = new uint256[](validatorList.length);
+        uint256 validatorsLength = validators.length;
+        address[] memory eligibleValidators = new address[](validatorsLength);
+        uint256[] memory stakes = new uint256[](validatorsLength);
         uint256 eligibleCount = 0;
 
-        for (uint256 i = 0; i < validatorList.length; i++) {
-            address validatorAddr = validatorList[i];
+        for (uint256 i = 0; i < validatorsLength; ++i) {
+            address validatorAddr = validators[i];
             IValidator validator = IValidator(validatorProxies[validatorAddr]);
 
             if (
@@ -394,7 +356,6 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         }
 
         // Sort validators by stake amount (descending) using insertion sort
-        // Insertion sort is more gas efficient for small arrays
         if (eligibleCount > 1) {
             for (uint256 i = 1; i < eligibleCount; i++) {
                 uint256 keyStake = stakes[i];
@@ -414,7 +375,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
 
         uint256 activeCount = eligibleCount < activeValidatorLimit ? eligibleCount : activeValidatorLimit;
         delete activeValidators;
-        for (uint256 i = 0; i < activeCount; i++) {
+        for (uint256 i = 0; i < activeCount; ++i) {
             activeValidators.push(eligibleValidators[i]);
         }
 

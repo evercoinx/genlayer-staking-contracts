@@ -55,7 +55,7 @@ contract EdgeCaseIntegrationTest is Test {
 
         gltToken = new GLTToken(deployer);
         llmOracle = new MockLLMOracle();
-        validatorRegistry = new ValidatorRegistry(address(gltToken), deployer);
+        validatorRegistry = new ValidatorRegistry(address(gltToken), deployer, 5);
         proposalManager = new ProposalManager(address(validatorRegistry), address(llmOracle), proposalManagerRole);
         consensusEngine =
             new ConsensusEngine(address(validatorRegistry), address(proposalManager), consensusInitiatorRole);
@@ -145,7 +145,7 @@ contract EdgeCaseIntegrationTest is Test {
     }
 
     function test_EdgeCase_MaximumValidatorsReached() public {
-        uint256 activeValidatorLimit = validatorRegistry.getActiveValidatorLimit();
+        uint256 activeValidatorLimit = validatorRegistry.activeValidatorLimit();
 
         for (uint256 i = 4; i <= activeValidatorLimit; i++) {
             address newValidator = address(uint160(i * 1000));

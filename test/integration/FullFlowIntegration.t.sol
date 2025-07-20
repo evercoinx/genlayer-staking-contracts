@@ -61,7 +61,7 @@ contract FullFlowIntegrationTest is Test {
 
         gltToken = new GLTToken(deployer);
         llmOracle = new MockLLMOracle();
-        validatorRegistry = new ValidatorRegistry(address(gltToken), deployer);
+        validatorRegistry = new ValidatorRegistry(address(gltToken), deployer, 5);
         proposalManager = new ProposalManager(address(validatorRegistry), address(llmOracle), proposalManagerRole);
         consensusEngine =
             new ConsensusEngine(address(validatorRegistry), address(proposalManager), consensusInitiatorRole);

@@ -43,7 +43,7 @@ contract Deploy is Script {
         MockLLMOracle llmOracle = new MockLLMOracle();
         console2.log("MockLLMOracle deployed at:", address(llmOracle));
 
-        ValidatorRegistry validatorRegistry = new ValidatorRegistry(address(gltToken), deployer);
+        ValidatorRegistry validatorRegistry = new ValidatorRegistry(address(gltToken), deployer, 5);
         console2.log("ValidatorRegistry deployed at:", address(validatorRegistry));
         console2.log("ValidatorBeacon deployed at:", validatorRegistry.getValidatorBeacon());
 
@@ -63,9 +63,6 @@ contract Deploy is Script {
 
         validatorRegistry.setSlasher(address(disputeResolver));
         console2.log("Updated ValidatorRegistry slasher to DisputeResolver");
-
-        validatorRegistry.setActiveValidatorLimit(5);
-        console2.log("Set active validator limit to 5 (top-N selection)");
 
         vm.stopBroadcast();
 
@@ -115,7 +112,7 @@ contract Deploy is Script {
         console2.log("- Upgradeable validator logic through beacon pattern");
         console2.log("- Enhanced metadata support for validator information");
         console2.log("- Top-N validator selection for execution (default: 5)");
-        console2.log("- Active validator limit:", ValidatorRegistry(validatorRegistry).getActiveValidatorLimit());
+        console2.log("- Active validator limit:", ValidatorRegistry(validatorRegistry).activeValidatorLimit());
         console2.log("=====================================");
     }
 
@@ -156,10 +153,10 @@ contract Deploy is Script {
         console2.log("Validator Registry Status:");
         console2.log("=====================================");
         console2.log("Total validators:", validatorRegistry.getTotalValidators());
-        console2.log("Total stake:", validatorRegistry.getTotalStake() / 1e18, "GLT");
+        console2.log("Total stake:", validatorRegistry.totalStaked() / 1e18, "GLT");
         console2.log("Active validators:", validatorRegistry.getActiveValidators().length);
-        console2.log("Max validators:", validatorRegistry.getMaxValidators());
-        console2.log("Minimum stake:", validatorRegistry.getMinimumStake() / 1e18, "GLT");
+        console2.log("Max validators:", validatorRegistry.MAX_VALIDATORS());
+        console2.log("Minimum stake:", validatorRegistry.MINIMUM_STAKE() / 1e18, "GLT");
         console2.log("=====================================");
     }
 }
