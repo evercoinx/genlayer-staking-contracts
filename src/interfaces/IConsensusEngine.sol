@@ -62,6 +62,13 @@ interface IConsensusEngine {
     );
 
     /**
+     * @dev Emitted when the consensus initiator is updated.
+     * @param oldInitiator The previous consensus initiator address.
+     * @param newInitiator The new consensus initiator address.
+     */
+    event ConsensusInitiatorUpdated(address indexed oldInitiator, address indexed newInitiator);
+
+    /**
      * @dev Error thrown when round is not found.
      */
     error RoundNotFound();
@@ -107,9 +114,19 @@ interface IConsensusEngine {
     error CallerNotConsensusInitiator();
 
     /**
-     * @dev Error thrown when zero address is provided.
+     * @dev Error thrown when zero address is provided for validator registry.
      */
-    error ZeroAddress();
+    error ZeroValidatorRegistry();
+
+    /**
+     * @dev Error thrown when zero address is provided for proposal manager.
+     */
+    error ZeroProposalManager();
+
+    /**
+     * @dev Error thrown when zero address is provided for consensus initiator.
+     */
+    error ZeroConsensusInitiator();
 
     /**
      * @dev Error thrown when proposal is not in challenged state.
@@ -172,17 +189,6 @@ interface IConsensusEngine {
         view
         returns (uint256 votesFor, uint256 votesAgainst, uint256 totalValidators);
 
-    /**
-     * @dev Returns the voting period duration in blocks.
-     * @return duration The voting period duration.
-     */
-    function getVotingPeriod() external view returns (uint256 duration);
-
-    /**
-     * @dev Returns the quorum percentage required for consensus.
-     * @return percentage The quorum percentage (e.g., 66 for 66%).
-     */
-    function getQuorumPercentage() external view returns (uint256 percentage);
 
     /**
      * @dev Checks if a consensus round can be finalized.

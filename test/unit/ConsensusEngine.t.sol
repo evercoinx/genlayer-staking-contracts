@@ -87,6 +87,22 @@ contract ConsensusEngineTest is Test {
         validatorRegistry.registerValidator(1_000e18);
     }
 
+    // === Constructor Tests ===
+    function test_Constructor_RevertIfZeroValidatorRegistry() public {
+        vm.expectRevert(IConsensusEngine.ZeroValidatorRegistry.selector);
+        new ConsensusEngine(address(0), address(proposalManager), consensusInitiator);
+    }
+
+    function test_Constructor_RevertIfZeroProposalManager() public {
+        vm.expectRevert(IConsensusEngine.ZeroProposalManager.selector);
+        new ConsensusEngine(address(validatorRegistry), address(0), consensusInitiator);
+    }
+
+    function test_Constructor_RevertIfZeroConsensusInitiator() public {
+        vm.expectRevert(IConsensusEngine.ZeroConsensusInitiator.selector);
+        new ConsensusEngine(address(validatorRegistry), address(proposalManager), address(0));
+    }
+
     function _createVoteSignature(
         uint256 privateKey,
         uint256 roundId,
@@ -369,7 +385,11 @@ contract ConsensusEngineTest is Test {
     // === Admin Functions ===
     function test_SetConsensusInitiator_Success() public {
         address newInitiator = address(0x888);
+        address oldInitiator = consensusEngine.consensusInitiator();
 
+        vm.expectEmit(true, true, false, true);
+        emit IConsensusEngine.ConsensusInitiatorUpdated(oldInitiator, newInitiator);
+        
         consensusEngine.setConsensusInitiator(newInitiator);
 
         assertEq(consensusEngine.consensusInitiator(), newInitiator);
@@ -382,7 +402,7 @@ contract ConsensusEngineTest is Test {
     }
 
     function test_SetConsensusInitiator_RevertIfZeroAddress() public {
-        vm.expectRevert(IConsensusEngine.ZeroAddress.selector);
+        vm.expectRevert(IConsensusEngine.ZeroConsensusInitiator.selector);
         consensusEngine.setConsensusInitiator(address(0));
     }
 
@@ -474,11 +494,11 @@ contract ConsensusEngineTest is Test {
     }
 
     function test_GetVotingPeriod() public view {
-        assertEq(consensusEngine.getVotingPeriod(), VOTING_PERIOD);
+        assertEq(consensusEngine.VOTING_PERIOD(), VOTING_PERIOD);
     }
 
     function test_GetQuorumPercentage() public view {
-        assertEq(consensusEngine.getQuorumPercentage(), QUORUM_PERCENTAGE);
+        assertEq(consensusEngine.QUORUM_PERCENTAGE(), QUORUM_PERCENTAGE);
     }
 
     // === Edge Cases ===

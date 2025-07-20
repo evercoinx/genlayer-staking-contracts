@@ -64,10 +64,9 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
     )
         Ownable(msg.sender)
     {
-        require(
-            _validatorRegistry != address(0) && _proposalManager != address(0) && _consensusInitiator != address(0),
-            ZeroAddress()
-        );
+        require(_validatorRegistry != address(0), ZeroValidatorRegistry());
+        require(_proposalManager != address(0), ZeroProposalManager());
+        require(_consensusInitiator != address(0), ZeroConsensusInitiator());
         validatorRegistry = IValidatorRegistry(_validatorRegistry);
         proposalManager = IProposalManager(_proposalManager);
         consensusInitiator = _consensusInitiator;
@@ -77,8 +76,10 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
      * @inheritdoc IConsensusEngine
      */
     function setConsensusInitiator(address newInitiator) external override onlyOwner {
-        require(newInitiator != address(0), ZeroAddress());
+        require(newInitiator != address(0), ZeroConsensusInitiator());
+        address oldInitiator = consensusInitiator;
         consensusInitiator = newInitiator;
+        emit ConsensusInitiatorUpdated(oldInitiator, newInitiator);
     }
 
     /**
@@ -137,9 +138,9 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
             Vote({ validator: msg.sender, support: support, signature: signature, timestamp: block.timestamp });
 
         if (support) {
-            round.votesFor++;
+            ++round.votesFor;
         } else {
-            round.votesAgainst++;
+            ++round.votesAgainst;
         }
 
         emit VoteCast(roundId, msg.sender, support);
@@ -208,20 +209,6 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
         votesFor = round.votesFor;
         votesAgainst = round.votesAgainst;
         totalValidators = validatorRegistry.getActiveValidators().length;
-    }
-
-    /**
-     * @inheritdoc IConsensusEngine
-     */
-    function getVotingPeriod() external pure returns (uint256) {
-        return VOTING_PERIOD;
-    }
-
-    /**
-     * @inheritdoc IConsensusEngine
-     */
-    function getQuorumPercentage() external pure returns (uint256) {
-        return QUORUM_PERCENTAGE;
     }
 
     /**
