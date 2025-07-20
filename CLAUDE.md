@@ -60,7 +60,7 @@ export ETHERSCAN_API_KEY=<your-etherscan-key>  # For verification
 ## Architecture & Contract Relationships
 
 ### Core Contract System
-The system consists of 6 interconnected contracts that implement a complete governance and staking mechanism:
+The system consists of 7 interconnected contracts that implement a complete governance and staking mechanism:
 
 1. **GLTToken** → ValidatorRegistry
    - ERC20 token used for staking
@@ -71,18 +71,24 @@ The system consists of 6 interconnected contracts that implement a complete gove
    - Maintains active validator set (max 100)
    - Only active validators can create proposals
    - DisputeResolver has slashing privileges
+   - Creates beacon proxy contracts for each validator
 
-3. **ProposalManager** → MockLLMOracle
+3. **ValidatorBeacon** → Validator Proxies
+   - Manages the implementation for all validator proxy contracts
+   - Enables upgradeability of validator logic
+   - Owned by ValidatorRegistry for controlled upgrades
+
+4. **ProposalManager** → MockLLMOracle
    - Manages proposal lifecycle: Pending → OptimisticApproved → Challenged → Finalized/Rejected
    - 10-block challenge window after optimistic approval
    - Integrates with LLM oracle for validation
 
-4. **ConsensusEngine** ← → ProposalManager
+5. **ConsensusEngine** ← → ProposalManager
    - Initiates voting rounds for challenged proposals
    - 100-block voting periods with 60% quorum requirement (3/5 validators)
    - Updates proposal state based on consensus outcome
 
-5. **DisputeResolver** → ValidatorRegistry & ProposalManager
+6. **DisputeResolver** → ValidatorRegistry & ProposalManager
    - Handles challenges with minimum 100 GLT stake
    - 50-block dispute voting period
    - Can slash validators (10% penalty) via ValidatorRegistry
@@ -137,12 +143,14 @@ All validator actions require ECDSA signatures with specific message formats:
 
 ## Testing Approach
 
-The codebase includes 165 comprehensive unit tests covering:
+The codebase includes 241 test functions across 16 test files covering:
 - State transitions and access control
 - Edge cases and reverting conditions
 - Signature verification
 - Economic mechanics (staking, slashing, rewards)
 - Fuzz tests for parameter validation
+- Integration tests for multi-contract interactions
+- Invariant tests for system properties
 
 Test files follow the pattern: `test/unit/<ContractName>.t.sol`
 
