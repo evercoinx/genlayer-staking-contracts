@@ -2,16 +2,16 @@
 pragma solidity 0.8.28;
 
 import { Test } from "@forge-std/Test.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { IDisputeResolver } from "../../src/interfaces/IDisputeResolver.sol";
+import { IProposalManager } from "../../src/interfaces/IProposalManager.sol";
+import { IValidatorRegistry } from "../../src/interfaces/IValidatorRegistry.sol";
 import { GLTToken } from "../../src/GLTToken.sol";
 import { ValidatorRegistry } from "../../src/ValidatorRegistry.sol";
 import { ProposalManager } from "../../src/ProposalManager.sol";
 import { MockLLMOracle } from "../../src/MockLLMOracle.sol";
 import { DisputeResolver } from "../../src/DisputeResolver.sol";
-import { IDisputeResolver } from "../../src/interfaces/IDisputeResolver.sol";
-import { IProposalManager } from "../../src/interfaces/IProposalManager.sol";
-import { IValidatorRegistry } from "../../src/interfaces/IValidatorRegistry.sol";
-import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /**
  * @title DisputeResolverFuzzTest

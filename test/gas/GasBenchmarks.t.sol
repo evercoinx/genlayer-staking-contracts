@@ -3,18 +3,18 @@ pragma solidity 0.8.28;
 
 import { Test } from "@forge-std/Test.sol";
 import { console2 } from "@forge-std/console2.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { IValidatorRegistry } from "../../src/interfaces/IValidatorRegistry.sol";
+import { IProposalManager } from "../../src/interfaces/IProposalManager.sol";
+import { IConsensusEngine } from "../../src/interfaces/IConsensusEngine.sol";
+import { IDisputeResolver } from "../../src/interfaces/IDisputeResolver.sol";
 import { GLTToken } from "../../src/GLTToken.sol";
 import { ValidatorRegistry } from "../../src/ValidatorRegistry.sol";
 import { ProposalManager } from "../../src/ProposalManager.sol";
 import { MockLLMOracle } from "../../src/MockLLMOracle.sol";
 import { ConsensusEngine } from "../../src/ConsensusEngine.sol";
 import { DisputeResolver } from "../../src/DisputeResolver.sol";
-import { IValidatorRegistry } from "../../src/interfaces/IValidatorRegistry.sol";
-import { IProposalManager } from "../../src/interfaces/IProposalManager.sol";
-import { IConsensusEngine } from "../../src/interfaces/IConsensusEngine.sol";
-import { IDisputeResolver } from "../../src/interfaces/IDisputeResolver.sol";
-import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /**
  * @title GasBenchmarks

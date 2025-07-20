@@ -2,9 +2,9 @@
 pragma solidity 0.8.28;
 
 import { Test } from "@forge-std/Test.sol";
-import { GLTToken } from "../../src/GLTToken.sol";
-import { IGLTToken } from "../../src/interfaces/IGLTToken.sol";
 import { IERC20Errors } from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import { IGLTToken } from "../../src/interfaces/IGLTToken.sol";
+import { GLTToken } from "../../src/GLTToken.sol";
 
 /**
  * @title GLTTokenTest

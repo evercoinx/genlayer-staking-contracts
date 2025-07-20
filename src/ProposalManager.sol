@@ -3,9 +3,9 @@ pragma solidity 0.8.28;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { IMockLLMOracle } from "./interfaces/IMockLLMOracle.sol";
 import { IProposalManager } from "./interfaces/IProposalManager.sol";
 import { IValidatorRegistry } from "./interfaces/IValidatorRegistry.sol";
-import { IMockLLMOracle } from "./interfaces/IMockLLMOracle.sol";
 
 /**
  * @title ProposalManager

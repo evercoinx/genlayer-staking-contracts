@@ -2,8 +2,8 @@
 pragma solidity 0.8.28;
 
 import { Test } from "@forge-std/Test.sol";
-import { ProposalManager } from "../../src/ProposalManager.sol";
 import { IProposalManager } from "../../src/interfaces/IProposalManager.sol";
+import { ProposalManager } from "../../src/ProposalManager.sol";
 import { ValidatorRegistry } from "../../src/ValidatorRegistry.sol";
 import { MockLLMOracle } from "../../src/MockLLMOracle.sol";
 import { GLTToken } from "../../src/GLTToken.sol";

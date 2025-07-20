@@ -3,10 +3,10 @@ pragma solidity 0.8.28;
 
 import { Test } from "forge-std/Test.sol";
 import { BeaconProxy } from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
+import { IValidator } from "../../src/interfaces/IValidator.sol";
 import { Validator } from "../../src/Validator.sol";
 import { ValidatorBeacon } from "../../src/ValidatorBeacon.sol";
 import { GLTToken } from "../../src/GLTToken.sol";
-import { IValidator } from "../../src/interfaces/IValidator.sol";
 
 contract ValidatorTest is Test {
     Validator public validatorImplementation;

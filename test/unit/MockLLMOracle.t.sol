@@ -2,8 +2,8 @@
 pragma solidity 0.8.28;
 
 import { Test } from "@forge-std/Test.sol";
-import { MockLLMOracle } from "../../src/MockLLMOracle.sol";
 import { IMockLLMOracle } from "../../src/interfaces/IMockLLMOracle.sol";
+import { MockLLMOracle } from "../../src/MockLLMOracle.sol";
 
 /**
  * @title MockLLMOracleTest

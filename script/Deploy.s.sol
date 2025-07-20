@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { console2 } from "@forge-std/console2.sol";
 import { Script } from "@forge-std/Script.sol";
-import { GLTToken } from "../src/GLTToken.sol";
-import { ValidatorRegistry } from "../src/ValidatorRegistry.sol";
-import { MockLLMOracle } from "../src/MockLLMOracle.sol";
-import { ProposalManager } from "../src/ProposalManager.sol";
+import { console2 } from "@forge-std/console2.sol";
 import { ConsensusEngine } from "../src/ConsensusEngine.sol";
 import { DisputeResolver } from "../src/DisputeResolver.sol";
+import { GLTToken } from "../src/GLTToken.sol";
+import { MockLLMOracle } from "../src/MockLLMOracle.sol";
+import { ProposalManager } from "../src/ProposalManager.sol";
+import { ValidatorRegistry } from "../src/ValidatorRegistry.sol";
 
 /**
  * @title Deploy

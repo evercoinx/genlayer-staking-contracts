@@ -3,13 +3,13 @@ pragma solidity 0.8.28;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { IDisputeResolver } from "./interfaces/IDisputeResolver.sol";
-import { IValidatorRegistry } from "./interfaces/IValidatorRegistry.sol";
 import { IProposalManager } from "./interfaces/IProposalManager.sol";
+import { IValidatorRegistry } from "./interfaces/IValidatorRegistry.sol";
 
 /**
  * @title DisputeResolver

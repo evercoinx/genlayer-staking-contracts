@@ -2,10 +2,10 @@
 pragma solidity 0.8.28;
 
 import { Test } from "@forge-std/Test.sol";
-import { GLTToken } from "../../src/GLTToken.sol";
-import { ValidatorRegistry } from "../../src/ValidatorRegistry.sol";
 import { IValidatorRegistry } from "../../src/interfaces/IValidatorRegistry.sol";
 import { IValidator } from "../../src/interfaces/IValidator.sol";
+import { GLTToken } from "../../src/GLTToken.sol";
+import { ValidatorRegistry } from "../../src/ValidatorRegistry.sol";
 
 /**
  * @title ValidatorRegistryFuzzTest

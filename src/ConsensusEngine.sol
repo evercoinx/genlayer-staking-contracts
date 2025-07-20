@@ -6,8 +6,8 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { IConsensusEngine } from "./interfaces/IConsensusEngine.sol";
-import { IValidatorRegistry } from "./interfaces/IValidatorRegistry.sol";
 import { IProposalManager } from "./interfaces/IProposalManager.sol";
+import { IValidatorRegistry } from "./interfaces/IValidatorRegistry.sol";
 
 /**
  * @title ConsensusEngine

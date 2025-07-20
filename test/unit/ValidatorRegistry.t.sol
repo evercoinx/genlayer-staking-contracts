@@ -2,13 +2,13 @@
 pragma solidity 0.8.28;
 
 import { Test } from "forge-std/Test.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IValidator } from "../../src/interfaces/IValidator.sol";
+import { IValidatorRegistry } from "../../src/interfaces/IValidatorRegistry.sol";
 import { ValidatorRegistry } from "../../src/ValidatorRegistry.sol";
 import { ValidatorBeacon } from "../../src/ValidatorBeacon.sol";
 import { Validator } from "../../src/Validator.sol";
 import { GLTToken } from "../../src/GLTToken.sol";
-import { IValidator } from "../../src/interfaces/IValidator.sol";
-import { IValidatorRegistry } from "../../src/interfaces/IValidatorRegistry.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract ValidatorRegistryTest is Test {
     ValidatorRegistry public registry;
