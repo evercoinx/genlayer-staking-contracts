@@ -116,6 +116,8 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         validatorBeacon = new ValidatorBeacon(address(validatorImplementation), address(this));
     }
 
+    // External non-view/pure functions
+
     /**
      * @dev Sets a new slasher address. Only callable by owner.
      * @param newSlasher The address to grant slashing privileges to.
@@ -142,50 +144,6 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      */
     function registerValidator(uint256 stakeAmount) external {
         return registerValidatorWithMetadata(stakeAmount, "");
-    }
-
-    /**
-     * @dev Registers a new validator with metadata using beacon proxy pattern.
-     * @param stakeAmount The amount of GLT tokens to stake.
-     * @param metadata The validator metadata.
-     */
-    function registerValidatorWithMetadata(uint256 stakeAmount, string memory metadata) public nonReentrant {
-        if (stakeAmount < MINIMUM_STAKE) {
-            revert InsufficientStake();
-        }
-        if (validatorProxies[msg.sender] != address(0)) {
-            revert ValidatorAlreadyRegistered();
-        }
-
-        // Transfer GLT tokens to registry first
-        gltToken.safeTransferFrom(msg.sender, address(this), stakeAmount);
-
-        // Create beacon proxy for the validator
-        BeaconProxy validatorProxy = new BeaconProxy(
-            address(validatorBeacon),
-            abi.encodeWithSelector(
-                IValidator.initialize.selector,
-                msg.sender,
-                stakeAmount,
-                metadata,
-                address(gltToken),
-                address(this)
-            )
-        );
-
-        // Transfer tokens to the validator proxy
-        gltToken.safeTransfer(address(validatorProxy), stakeAmount);
-
-        // Store the mapping
-        validatorProxies[msg.sender] = address(validatorProxy);
-        validatorList.push(msg.sender);
-        totalStaked += stakeAmount;
-
-        emit ValidatorRegistered(msg.sender, stakeAmount);
-        emit ValidatorProxyCreated(msg.sender, address(validatorProxy), stakeAmount);
-
-        // Update active validator set
-        _updateActiveValidatorSet();
     }
 
     /**
@@ -299,54 +257,14 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Internal function to update the active validator set based on stake amounts.
+     * @dev Upgrades the validator implementation for all beacon proxies.
+     * @param newImplementation The new validator implementation address.
      */
-    function _updateActiveValidatorSet() private {
-        // Create arrays for eligible validators
-        address[] memory eligibleValidators = new address[](validatorList.length);
-        uint256[] memory stakes = new uint256[](validatorList.length);
-        uint256 eligibleCount = 0;
-
-        // Collect eligible validators
-        for (uint256 i = 0; i < validatorList.length; i++) {
-            address validatorAddr = validatorList[i];
-            IValidator validator = IValidator(validatorProxies[validatorAddr]);
-            
-            if (validator.getStatus() == IValidator.ValidatorStatus.Active && 
-                validator.getStakedAmount() >= MINIMUM_STAKE) {
-                eligibleValidators[eligibleCount] = validatorAddr;
-                stakes[eligibleCount] = validator.getStakedAmount();
-                eligibleCount++;
-            }
-        }
-
-        // Sort validators by stake amount (descending)
-        if (eligibleCount > 1) {
-            for (uint256 i = 0; i < eligibleCount - 1; i++) {
-                for (uint256 j = 0; j < eligibleCount - i - 1; j++) {
-                    if (stakes[j] < stakes[j + 1]) {
-                        // Swap stakes
-                        uint256 tempStake = stakes[j];
-                        stakes[j] = stakes[j + 1];
-                        stakes[j + 1] = tempStake;
-                        // Swap addresses
-                        address tempAddr = eligibleValidators[j];
-                        eligibleValidators[j] = eligibleValidators[j + 1];
-                        eligibleValidators[j + 1] = tempAddr;
-                    }
-                }
-            }
-        }
-
-        // Select top validators up to activeValidatorLimit
-        uint256 activeCount = eligibleCount < activeValidatorLimit ? eligibleCount : activeValidatorLimit;
-        delete activeValidators;
-        for (uint256 i = 0; i < activeCount; i++) {
-            activeValidators.push(eligibleValidators[i]);
-        }
-
-        emit ActiveValidatorSetUpdated(activeValidators, block.number);
+    function upgradeValidatorImplementation(address newImplementation) external onlyOwner {
+        validatorBeacon.upgradeImplementation(newImplementation);
     }
+
+    // External view functions
 
     /**
      * @inheritdoc IValidatorRegistry
@@ -418,27 +336,6 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @inheritdoc IValidatorRegistry
-     */
-    function getMinimumStake() external pure returns (uint256) {
-        return MINIMUM_STAKE;
-    }
-
-    /**
-     * @inheritdoc IValidatorRegistry
-     */
-    function getBondingPeriod() external pure returns (uint256) {
-        return BONDING_PERIOD;
-    }
-
-    /**
-     * @inheritdoc IValidatorRegistry
-     */
-    function getMaxValidators() external pure returns (uint256) {
-        return MAX_VALIDATORS;
-    }
-
-    /**
      * @dev Returns the current active validator limit.
      * @return The active validator limit.
      */
@@ -452,14 +349,6 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      */
     function getValidatorBeacon() external view returns (address) {
         return address(validatorBeacon);
-    }
-
-    /**
-     * @dev Upgrades the validator implementation for all beacon proxies.
-     * @param newImplementation The new validator implementation address.
-     */
-    function upgradeValidatorImplementation(address newImplementation) external onlyOwner {
-        validatorBeacon.upgradeImplementation(newImplementation);
     }
 
     /**
@@ -495,5 +384,126 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
             }
         }
         return false;
+    }
+
+    // External pure functions
+
+    /**
+     * @inheritdoc IValidatorRegistry
+     */
+    function getMinimumStake() external pure returns (uint256) {
+        return MINIMUM_STAKE;
+    }
+
+    /**
+     * @inheritdoc IValidatorRegistry
+     */
+    function getBondingPeriod() external pure returns (uint256) {
+        return BONDING_PERIOD;
+    }
+
+    /**
+     * @inheritdoc IValidatorRegistry
+     */
+    function getMaxValidators() external pure returns (uint256) {
+        return MAX_VALIDATORS;
+    }
+
+    // Public function
+
+    /**
+     * @dev Registers a new validator with metadata using beacon proxy pattern.
+     * @param stakeAmount The amount of GLT tokens to stake.
+     * @param metadata The validator metadata.
+     */
+    function registerValidatorWithMetadata(uint256 stakeAmount, string memory metadata) public nonReentrant {
+        if (stakeAmount < MINIMUM_STAKE) {
+            revert InsufficientStake();
+        }
+        if (validatorProxies[msg.sender] != address(0)) {
+            revert ValidatorAlreadyRegistered();
+        }
+
+        // Transfer GLT tokens to registry first
+        gltToken.safeTransferFrom(msg.sender, address(this), stakeAmount);
+
+        // Create beacon proxy for the validator
+        BeaconProxy validatorProxy = new BeaconProxy(
+            address(validatorBeacon),
+            abi.encodeWithSelector(
+                IValidator.initialize.selector,
+                msg.sender,
+                stakeAmount,
+                metadata,
+                address(gltToken),
+                address(this)
+            )
+        );
+
+        // Transfer tokens to the validator proxy
+        gltToken.safeTransfer(address(validatorProxy), stakeAmount);
+
+        // Store the mapping
+        validatorProxies[msg.sender] = address(validatorProxy);
+        validatorList.push(msg.sender);
+        totalStaked += stakeAmount;
+
+        emit ValidatorRegistered(msg.sender, stakeAmount);
+        emit ValidatorProxyCreated(msg.sender, address(validatorProxy), stakeAmount);
+
+        // Update active validator set
+        _updateActiveValidatorSet();
+    }
+
+    // Private function
+
+    /**
+     * @dev Internal function to update the active validator set based on stake amounts.
+     */
+    function _updateActiveValidatorSet() private {
+        // Create arrays for eligible validators
+        address[] memory eligibleValidators = new address[](validatorList.length);
+        uint256[] memory stakes = new uint256[](validatorList.length);
+        uint256 eligibleCount = 0;
+
+        // Collect eligible validators
+        for (uint256 i = 0; i < validatorList.length; i++) {
+            address validatorAddr = validatorList[i];
+            IValidator validator = IValidator(validatorProxies[validatorAddr]);
+            
+            if (validator.getStatus() == IValidator.ValidatorStatus.Active && 
+                validator.getStakedAmount() >= MINIMUM_STAKE) {
+                eligibleValidators[eligibleCount] = validatorAddr;
+                stakes[eligibleCount] = validator.getStakedAmount();
+                eligibleCount++;
+            }
+        }
+
+        // Sort validators by stake amount (descending)
+        if (eligibleCount > 1) {
+            for (uint256 i = 0; i < eligibleCount - 1; i++) {
+                for (uint256 j = 0; j < eligibleCount - i - 1; j++) {
+                    if (stakes[j] < stakes[j + 1]) {
+                        // Swap stakes
+                        uint256 tempStake = stakes[j];
+                        stakes[j] = stakes[j + 1];
+                        stakes[j + 1] = tempStake;
+                        // Swap addresses
+                        address tempAddr = eligibleValidators[j];
+                        eligibleValidators[j] = eligibleValidators[j + 1];
+                        eligibleValidators[j + 1] = tempAddr;
+                    }
+                }
+            }
+        }
+
+        // Select top validators up to activeValidatorLimit
+        uint256 activeCount = eligibleCount < activeValidatorLimit ? eligibleCount : activeValidatorLimit;
+        delete activeValidators;
+        for (uint256 i = 0; i < activeCount; i++) {
+            activeValidators.push(eligibleValidators[i]);
+        }
+
+        emit ActiveValidatorSetUpdated(activeValidators, block.number);
     }
 }

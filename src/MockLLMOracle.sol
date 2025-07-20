@@ -67,6 +67,13 @@ contract MockLLMOracle is IMockLLMOracle {
     /**
      * @inheritdoc IMockLLMOracle
      */
+    function getTotalValidations() external view returns (uint256) {
+        return totalValidations;
+    }
+
+    /**
+     * @inheritdoc IMockLLMOracle
+     */
     function checkValidation(bytes32 proposalHash) external pure returns (bool isValid) {
         return _isValidHash(proposalHash);
     }
@@ -76,13 +83,6 @@ contract MockLLMOracle is IMockLLMOracle {
      */
     function getMaxBatchSize() external pure returns (uint256) {
         return MAX_BATCH_SIZE;
-    }
-
-    /**
-     * @inheritdoc IMockLLMOracle
-     */
-    function getTotalValidations() external view returns (uint256) {
-        return totalValidations;
     }
 
     /**
