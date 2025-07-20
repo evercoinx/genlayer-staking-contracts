@@ -254,6 +254,7 @@ contract ConsensusEngineFuzzTest is Test {
         bool support
     )
         public
+        view
     {
         // Constraints
         vm.assume(validatorKey != 0 && validatorKey < type(uint256).max / 2);

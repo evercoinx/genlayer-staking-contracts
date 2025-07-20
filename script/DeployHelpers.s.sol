@@ -30,7 +30,6 @@ contract DeployHelpers is Script {
         require(GLT_TOKEN != address(0), "Update GLT_TOKEN address");
 
         uint256 deployerPrivateKey = uint256(vm.envBytes32("PRIVATE_KEY"));
-        address deployer = vm.addr(deployerPrivateKey);
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -58,7 +57,7 @@ contract DeployHelpers is Script {
      * Run with: forge script script/DeployHelpers.s.sol:DeployHelpers --sig "registerValidators()" --rpc-url $RPC_URL
      * --broadcast
      */
-    function registerValidators() external {
+    function registerValidators() external pure {
         require(GLT_TOKEN != address(0), "Update GLT_TOKEN address");
         require(VALIDATOR_REGISTRY != address(0), "Update VALIDATOR_REGISTRY address");
 

@@ -48,7 +48,7 @@ contract ValidatorRegistryTest is Test {
         gltToken.mint(validator3, 10_000e18);
     }
 
-    function test_Constructor() public {
+    function test_Constructor() public view {
         assertEq(address(registry.gltToken()), address(gltToken));
         assertEq(registry.slasher(), slasher);
         assertEq(registry.getMinimumStake(), MINIMUM_STAKE);
@@ -386,7 +386,7 @@ contract ValidatorRegistryTest is Test {
         registry.setSlasher(address(0));
     }
 
-    function test_GettersReturnCorrectValues() public {
+    function test_GettersReturnCorrectValues() public view {
         assertEq(registry.getMinimumStake(), MINIMUM_STAKE);
         assertEq(registry.getBondingPeriod(), BONDING_PERIOD);
         assertEq(registry.getMaxValidators(), MAX_VALIDATORS);
