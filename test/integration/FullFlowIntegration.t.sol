@@ -424,7 +424,7 @@ contract FullFlowIntegrationTest is Test {
         vm.prank(consensusInitiatorRole);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId2);
 
-        assertEq(disputeResolver.getTotalDisputes(), 2);
+        assertEq(disputeResolver.totalDisputes(), 2);
         assertEq(consensusEngine.getCurrentRound(proposalId2), roundId);
     }
 

@@ -121,7 +121,7 @@ contract SystemInvariantTest is Test {
      * @dev Invariant: Dispute states are consistent
      */
     function invariant_DisputeStatesConsistent() public view {
-        uint256 totalDisputes = disputeResolver.getTotalDisputes();
+        uint256 totalDisputes = disputeResolver.totalDisputes();
         uint256 startIndex = totalDisputes > 10 ? totalDisputes - 9 : 1;
 
         for (uint256 i = startIndex; i <= totalDisputes; i++) {

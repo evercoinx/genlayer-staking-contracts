@@ -130,9 +130,19 @@ interface IDisputeResolver {
     error CallerNotActiveValidator();
 
     /**
-     * @dev Error thrown when zero address is provided.
+     * @dev Error thrown when zero address is provided for GLT token.
      */
-    error ZeroAddress();
+    error ZeroGLTToken();
+
+    /**
+     * @dev Error thrown when zero address is provided for validator registry.
+     */
+    error ZeroValidatorRegistry();
+
+    /**
+     * @dev Error thrown when zero address is provided for proposal manager.
+     */
+    error ZeroProposalManager();
 
     /**
      * @dev Error thrown when signature is invalid.
@@ -198,33 +208,10 @@ interface IDisputeResolver {
         returns (bool hasVoted, bool supportChallenge);
 
     /**
-     * @dev Returns the minimum challenge stake required.
-     * @return minStake The minimum stake amount.
-     */
-    function getMinimumChallengeStake() external view returns (uint256 minStake);
-
-    /**
-     * @dev Returns the dispute voting period duration.
-     * @return duration The voting period in seconds.
-     */
-    function getDisputeVotingPeriod() external view returns (uint256 duration);
-
-    /**
-     * @dev Returns the slash percentage for losing disputes.
-     * @return percentage The slash percentage (e.g., 10 for 10%).
-     */
-    function getSlashPercentage() external view returns (uint256 percentage);
-
-    /**
      * @dev Checks if a dispute can be resolved.
      * @param disputeId The dispute ID.
      * @return canResolve True if the dispute can be resolved.
      */
     function canResolveDispute(uint256 disputeId) external view returns (bool canResolve);
 
-    /**
-     * @dev Returns the total number of disputes.
-     * @return count The total dispute count.
-     */
-    function getTotalDisputes() external view returns (uint256 count);
 }

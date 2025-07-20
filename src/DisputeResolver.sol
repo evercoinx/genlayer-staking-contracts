@@ -27,15 +27,15 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
     uint256 private constant PERCENTAGE_DIVISOR = 100;
     uint256 private constant VOTE_THRESHOLD_DIVISOR = 2; // 50% threshold
 
-    uint256 private disputeCounter;
+    IERC20 public immutable gltToken;
+    IValidatorRegistry public immutable validatorRegistry;
+    IProposalManager public immutable proposalManager;
+
+    uint256 public totalDisputes;
     mapping(uint256 => Dispute) private disputes;
     mapping(uint256 => uint256[]) private proposalToDisputes;
     mapping(uint256 => mapping(address => DisputeVote)) private disputeVotes;
     mapping(uint256 => mapping(address => bool)) private hasVoted;
-
-    IERC20 public immutable gltToken;
-    IValidatorRegistry public immutable validatorRegistry;
-    IProposalManager public immutable proposalManager;
 
     modifier onlyActiveValidator() {
         require(validatorRegistry.isActiveValidator(msg.sender), CallerNotActiveValidator());
@@ -49,11 +49,13 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
      * @param _proposalManager Address of the proposal manager contract.
      */
     constructor(address _gltToken, address _validatorRegistry, address _proposalManager) Ownable(msg.sender) {
-        require(
-            _gltToken != address(0) && _validatorRegistry != address(0) && _proposalManager != address(0), ZeroAddress()
-        );
+        require(_gltToken != address(0), ZeroGLTToken());
         gltToken = IERC20(_gltToken);
+
+        require(_validatorRegistry != address(0), ZeroValidatorRegistry());
         validatorRegistry = IValidatorRegistry(_validatorRegistry);
+
+        require(_proposalManager != address(0), ZeroProposalManager());
         proposalManager = IProposalManager(_proposalManager);
     }
 
@@ -65,6 +67,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
         uint256 challengeStake
     )
         external
+        override
         onlyActiveValidator
         nonReentrant
         returns (uint256 disputeId)
@@ -88,13 +91,13 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
         bytes calldata signature
     )
         external
+        override
         onlyActiveValidator
         nonReentrant
     {
         Dispute storage dispute = _validateVotingEligibility(disputeId);
 
         require(_verifyDisputeVoteSignature(disputeId, msg.sender, supportChallenge, signature), InvalidSignature());
-
         _recordVote(disputeId, dispute, supportChallenge, signature);
 
         emit DisputeVoteCast(disputeId, msg.sender, supportChallenge);
@@ -103,9 +106,8 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IDisputeResolver
      */
-    function resolveDispute(uint256 disputeId) external nonReentrant {
+    function resolveDispute(uint256 disputeId) external override nonReentrant {
         Dispute storage dispute = _validateDisputeResolvable(disputeId);
-
         dispute.state = DisputeState.VotingComplete;
 
         bool challengerWon = _determineDisputeOutcome(dispute);
@@ -124,7 +126,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IDisputeResolver
      */
-    function cancelDispute(uint256 disputeId, string calldata /* reason */ ) external onlyOwner {
+    function cancelDispute(uint256 disputeId, string calldata /* reason */ ) external override onlyOwner {
         Dispute storage dispute = disputes[disputeId];
         require(dispute.proposalId != 0, DisputeNotFound());
         require(dispute.state == DisputeState.Active, InvalidDisputeState());
@@ -139,7 +141,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IDisputeResolver
      */
-    function getDispute(uint256 disputeId) external view returns (Dispute memory) {
+    function getDispute(uint256 disputeId) external view override returns (Dispute memory) {
         Dispute memory dispute = disputes[disputeId];
         require(dispute.proposalId != 0, DisputeNotFound());
         return dispute;
@@ -148,7 +150,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IDisputeResolver
      */
-    function getDisputesByProposal(uint256 proposalId) external view returns (uint256[] memory) {
+    function getDisputesByProposal(uint256 proposalId) external view override returns (uint256[] memory) {
         return proposalToDisputes[proposalId];
     }
 
@@ -161,6 +163,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
     )
         external
         view
+        override
         returns (bool voted, bool supportChallenge)
     {
         voted = hasVoted[disputeId][validator];
@@ -172,38 +175,10 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IDisputeResolver
      */
-    function getMinimumChallengeStake() external pure returns (uint256) {
-        return MINIMUM_CHALLENGE_STAKE;
-    }
-
-    /**
-     * @inheritdoc IDisputeResolver
-     */
-    function getDisputeVotingPeriod() external pure returns (uint256) {
-        return DISPUTE_VOTING_PERIOD;
-    }
-
-    /**
-     * @inheritdoc IDisputeResolver
-     */
-    function getSlashPercentage() external pure returns (uint256) {
-        return SLASH_PERCENTAGE;
-    }
-
-    /**
-     * @inheritdoc IDisputeResolver
-     */
-    function canResolveDispute(uint256 disputeId) external view returns (bool) {
+    function canResolveDispute(uint256 disputeId) external view override returns (bool) {
         Dispute memory dispute = disputes[disputeId];
         return
             dispute.proposalId != 0 && dispute.state == DisputeState.Active && block.timestamp > dispute.votingEndTime;
-    }
-
-    /**
-     * @inheritdoc IDisputeResolver
-     */
-    function getTotalDisputes() external view returns (uint256) {
-        return disputeCounter;
     }
 
     /**
@@ -272,7 +247,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
         private
         returns (uint256)
     {
-        uint256 disputeId = ++disputeCounter;
+        uint256 disputeId = ++totalDisputes;
         uint256 currentTime = block.timestamp;
 
         disputes[disputeId] = Dispute({

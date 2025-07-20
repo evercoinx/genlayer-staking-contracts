@@ -201,7 +201,7 @@ contract DisputeResolverFuzzTest is Test {
         }
         uint256[] memory proposalDisputes = disputeResolver.getDisputesByProposal(proposalId);
         assertEq(proposalDisputes.length, disputeCount);
-        assertEq(disputeResolver.getTotalDisputes(), disputeCount);
+        assertEq(disputeResolver.totalDisputes(), disputeCount);
     }
 
     function testFuzz_TimingScenarios(uint256 voteTime, uint256 resolveTime) public {

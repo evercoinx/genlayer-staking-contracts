@@ -137,6 +137,22 @@ contract DisputeResolverTest is Test {
         return proposalId;
     }
 
+    // === Constructor Tests ===
+    function test_Constructor_RevertIfZeroGLTToken() public {
+        vm.expectRevert(IDisputeResolver.ZeroGLTToken.selector);
+        new DisputeResolver(address(0), address(validatorRegistry), address(proposalManager));
+    }
+
+    function test_Constructor_RevertIfZeroValidatorRegistry() public {
+        vm.expectRevert(IDisputeResolver.ZeroValidatorRegistry.selector);
+        new DisputeResolver(address(gltToken), address(0), address(proposalManager));
+    }
+
+    function test_Constructor_RevertIfZeroProposalManager() public {
+        vm.expectRevert(IDisputeResolver.ZeroProposalManager.selector);
+        new DisputeResolver(address(gltToken), address(validatorRegistry), address(0));
+    }
+
     // === Create Dispute ===
     function test_CreateDispute_Success() public {
         uint256 proposalId = _createOptimisticallyApprovedProposal();
@@ -512,26 +528,26 @@ contract DisputeResolverTest is Test {
     }
 
     function test_GetTotalDisputes() public {
-        assertEq(disputeResolver.getTotalDisputes(), 0);
+        assertEq(disputeResolver.totalDisputes(), 0);
 
         uint256 proposalId = _createOptimisticallyApprovedProposal();
 
         vm.prank(validator3);
         disputeResolver.createDispute(proposalId, 200e18);
 
-        assertEq(disputeResolver.getTotalDisputes(), 1);
+        assertEq(disputeResolver.totalDisputes(), 1);
     }
 
     function test_GetMinimumChallengeStake() public view {
-        assertEq(disputeResolver.getMinimumChallengeStake(), MINIMUM_CHALLENGE_STAKE);
+        assertEq(disputeResolver.MINIMUM_CHALLENGE_STAKE(), MINIMUM_CHALLENGE_STAKE);
     }
 
     function test_GetDisputeVotingPeriod() public view {
-        assertEq(disputeResolver.getDisputeVotingPeriod(), DISPUTE_VOTING_PERIOD);
+        assertEq(disputeResolver.DISPUTE_VOTING_PERIOD(), DISPUTE_VOTING_PERIOD);
     }
 
     function test_GetSlashPercentage() public view {
-        assertEq(disputeResolver.getSlashPercentage(), SLASH_PERCENTAGE);
+        assertEq(disputeResolver.SLASH_PERCENTAGE(), SLASH_PERCENTAGE);
     }
 
     // === Edge Cases ===
@@ -548,7 +564,7 @@ contract DisputeResolverTest is Test {
             disputeIds[i] = disputeResolver.createDispute(proposalId, stake);
         }
 
-        assertEq(disputeResolver.getTotalDisputes(), 3);
+        assertEq(disputeResolver.totalDisputes(), 3);
     }
 
     function test_ExactlyHalfVotes_ChallengerWins() public {
