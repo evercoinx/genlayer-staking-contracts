@@ -38,19 +38,14 @@ contract ProposalManagerTest is Test {
     event LLMValidationUpdated(uint256 indexed proposalId, bool validated);
 
     function setUp() public {
-        // Deploy GLT token
         gltToken = new GLTToken(deployer);
 
-        // Deploy ValidatorRegistry
         validatorRegistry = new ValidatorRegistry(address(gltToken), slasher);
 
-        // Deploy MockLLMOracle
         llmOracle = new MockLLMOracle();
 
-        // Deploy ProposalManager
         proposalManager = new ProposalManager(address(validatorRegistry), address(llmOracle), proposalManagerRole);
 
-        // Setup validators
         gltToken.mint(validator1, 10_000e18);
         gltToken.mint(validator2, 10_000e18);
         gltToken.mint(validator3, 10_000e18);
@@ -71,7 +66,7 @@ contract ProposalManagerTest is Test {
         validatorRegistry.registerValidator(2000e18);
     }
 
-    // Create Proposal Tests
+    // === Create Proposal ===
     function test_CreateProposal_Success() public {
         bytes32 contentHash = keccak256("proposal content");
         string memory metadata = "Test proposal";
@@ -82,7 +77,7 @@ contract ProposalManagerTest is Test {
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(contentHash, metadata);
 
-        assertEq(proposalId, 1, "Proposal ID should be 1");
+        assertEq(proposalId, 1);
 
         IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
         assertEq(proposal.proposer, validator1);
@@ -99,7 +94,6 @@ contract ProposalManagerTest is Test {
         bytes32 contentHash = keccak256("proposal content");
         string memory metadata = "Test proposal";
 
-        // Non-validators should be able to create proposals
         vm.expectEmit(true, true, true, true);
         emit ProposalCreated(1, nonValidator, contentHash);
 
@@ -147,7 +141,7 @@ contract ProposalManagerTest is Test {
         assertEq(proposalManager.getTotalProposals(), 2);
     }
 
-    // Optimistic Approval Tests
+    // === Optimistic Approval ===
     function test_ApproveOptimistically_Success() public {
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
@@ -178,26 +172,21 @@ contract ProposalManagerTest is Test {
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
 
-        // Approve once
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
-
-        // Try to approve again
         vm.expectRevert(IProposalManager.InvalidStateTransition.selector);
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
     }
 
-    // Challenge Proposal Tests
+    // === Challenge Proposal ===
     function test_ChallengeProposal_Success() public {
-        // Create and optimistically approve proposal
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
 
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // Challenge within window
         vm.expectEmit(true, true, false, false);
         emit ProposalChallenged(proposalId, validator2);
 
@@ -227,7 +216,6 @@ contract ProposalManagerTest is Test {
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // Move past challenge window
         vm.roll(block.number + CHALLENGE_WINDOW_DURATION + 1);
 
         vm.expectRevert(IProposalManager.ChallengeWindowExpired.selector);
@@ -244,7 +232,7 @@ contract ProposalManagerTest is Test {
         proposalManager.challengeProposal(proposalId);
     }
 
-    // Finalize Proposal Tests
+    // === Finalize Proposal ===
     function test_FinalizeProposal_Success() public {
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
@@ -252,7 +240,6 @@ contract ProposalManagerTest is Test {
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // Move past challenge window
         vm.roll(block.number + CHALLENGE_WINDOW_DURATION + 1);
 
         vm.expectEmit(true, false, false, true);
@@ -299,7 +286,7 @@ contract ProposalManagerTest is Test {
         proposalManager.finalizeProposal(proposalId);
     }
 
-    // Reject Proposal Tests
+    // === Reject Proposal ===
     function test_RejectProposal_Success() public {
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
@@ -340,7 +327,7 @@ contract ProposalManagerTest is Test {
         proposalManager.rejectProposal(proposalId, "Too late");
     }
 
-    // LLM Validation Tests
+    // === LLM Validation ===
     function test_UpdateLLMValidation_Success() public {
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
@@ -361,7 +348,7 @@ contract ProposalManagerTest is Test {
         proposalManager.updateLLMValidation(proposalId, true);
     }
 
-    // Validator Approval Tests
+    // === Validator Approval ===
     function test_RecordValidatorApproval_Success() public {
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
@@ -388,7 +375,7 @@ contract ProposalManagerTest is Test {
         proposalManager.recordValidatorApproval(proposalId);
     }
 
-    // Admin Tests
+    // === Admin Functions ===
     function test_SetProposalManager_Success() public {
         address newManager = address(0x999);
 
@@ -408,7 +395,7 @@ contract ProposalManagerTest is Test {
         proposalManager.setProposalManager(address(0));
     }
 
-    // View Functions Tests
+    // === View Functions ===
     function test_GetProposal_RevertIfNotFound() public {
         vm.expectRevert(IProposalManager.ProposalNotFound.selector);
         proposalManager.getProposal(999);
@@ -434,16 +421,13 @@ contract ProposalManagerTest is Test {
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
 
-        // Not optimistically approved yet
         assertFalse(proposalManager.canChallenge(proposalId));
 
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // Within window
         assertTrue(proposalManager.canChallenge(proposalId));
 
-        // Move past window
         vm.roll(block.number + CHALLENGE_WINDOW_DURATION + 1);
         assertFalse(proposalManager.canChallenge(proposalId));
     }
@@ -452,20 +436,16 @@ contract ProposalManagerTest is Test {
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
 
-        // Not optimistically approved yet
         assertFalse(proposalManager.canFinalize(proposalId));
 
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // Still within window
         assertFalse(proposalManager.canFinalize(proposalId));
 
-        // Move past window
         vm.roll(block.number + CHALLENGE_WINDOW_DURATION + 1);
         assertTrue(proposalManager.canFinalize(proposalId));
 
-        // After finalization
         proposalManager.finalizeProposal(proposalId);
         assertFalse(proposalManager.canFinalize(proposalId));
     }
@@ -487,19 +467,16 @@ contract ProposalManagerTest is Test {
     }
 
     function test_GetProposalsByState() public {
-        // Create proposals
         vm.prank(validator1);
         uint256 proposalId1 = proposalManager.createProposal(keccak256("1"), "Test 1");
 
         vm.prank(validator2);
         uint256 proposalId2 = proposalManager.createProposal(keccak256("2"), "Test 2");
 
-        // Check proposed state
         uint256[] memory proposedProposals =
             proposalManager.getProposalsByState(IProposalManager.ProposalState.Proposed);
         assertEq(proposedProposals.length, 2);
 
-        // Approve one optimistically
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId1);
 
@@ -513,32 +490,27 @@ contract ProposalManagerTest is Test {
         assertEq(approvedProposals[0], proposalId1);
     }
 
-    // Edge Cases
+    // === Edge Cases ===
     function test_ProposalLifecycle_FullFlow() public {
-        // Create proposal
         bytes32 contentHash = keccak256("Full lifecycle test");
 
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(contentHash, "Full lifecycle test");
 
-        // Approve optimistically
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
         IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
         assertEq(uint8(proposal.state), uint8(IProposalManager.ProposalState.OptimisticApproved));
 
-        // Move past challenge window
         vm.roll(block.number + CHALLENGE_WINDOW_DURATION + 1);
 
-        // Finalize
         proposalManager.finalizeProposal(proposalId);
 
         proposal = proposalManager.getProposal(proposalId);
         assertEq(uint8(proposal.state), uint8(IProposalManager.ProposalState.Finalized));
     }
 
-    // Fuzz Tests
     function testFuzz_CreateProposal(bytes32 contentHash, string memory metadata) public {
         vm.assume(contentHash != bytes32(0));
         vm.assume(bytes(metadata).length > 0 && bytes(metadata).length < 1000);
@@ -566,16 +538,13 @@ contract ProposalManagerTest is Test {
         assertEq(proposalManager.canChallenge(proposalId), expectedCanChallenge);
 
         if (expectedCanChallenge) {
-            // Should be able to challenge
             vm.prank(validator2);
             proposalManager.challengeProposal(proposalId);
         } else {
-            // Should be able to finalize
             proposalManager.finalizeProposal(proposalId);
         }
     }
 
-    // New tests for refactored functionality
     function test_RecordValidatorApproval_EmitsEvent() public {
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
@@ -596,7 +565,6 @@ contract ProposalManagerTest is Test {
         vm.prank(validator2);
         proposalManager.recordValidatorApproval(proposalId);
 
-        // Try to approve again
         vm.prank(validator2);
         vm.expectRevert("Validator already approved");
         proposalManager.recordValidatorApproval(proposalId);
@@ -614,7 +582,6 @@ contract ProposalManagerTest is Test {
     }
 
     function test_GetProposals_BatchRetrieve() public {
-        // Create multiple proposals
         uint256[] memory proposalIds = new uint256[](3);
 
         for (uint256 i = 0; i < 3; i++) {

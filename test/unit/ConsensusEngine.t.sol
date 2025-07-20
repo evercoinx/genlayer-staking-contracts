@@ -32,7 +32,6 @@ contract ConsensusEngineTest is Test {
     address public proposalManagerRole = address(0x2);
     address public consensusInitiator = address(0x3);
 
-    // Validator private keys for signature testing
     uint256 constant VALIDATOR1_PRIVATE_KEY = 0x1234;
     uint256 constant VALIDATOR2_PRIVATE_KEY = 0x5678;
     uint256 constant VALIDATOR3_PRIVATE_KEY = 0x9ABC;
@@ -55,27 +54,20 @@ contract ConsensusEngineTest is Test {
     );
 
     function setUp() public {
-        // Derive validator addresses from private keys
         validator1 = vm.addr(VALIDATOR1_PRIVATE_KEY);
         validator2 = vm.addr(VALIDATOR2_PRIVATE_KEY);
         validator3 = vm.addr(VALIDATOR3_PRIVATE_KEY);
 
-        // Deploy GLT token
         gltToken = new GLTToken(deployer);
 
-        // Deploy ValidatorRegistry
         validatorRegistry = new ValidatorRegistry(address(gltToken), slasher);
 
-        // Deploy MockLLMOracle
         llmOracle = new MockLLMOracle();
 
-        // Deploy ProposalManager
         proposalManager = new ProposalManager(address(validatorRegistry), address(llmOracle), proposalManagerRole);
 
-        // Deploy ConsensusEngine
         consensusEngine = new ConsensusEngine(address(validatorRegistry), address(proposalManager), consensusInitiator);
 
-        // Setup validators
         gltToken.mint(validator1, 10_000e18);
         gltToken.mint(validator2, 10_000e18);
         gltToken.mint(validator3, 10_000e18);
@@ -96,7 +88,6 @@ contract ConsensusEngineTest is Test {
         validatorRegistry.registerValidator(1000e18);
     }
 
-    // Helper function to create a valid signature
     function _createVoteSignature(
         uint256 privateKey,
         uint256 roundId,
@@ -117,24 +108,20 @@ contract ConsensusEngineTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    // Helper function to create a challenged proposal
     function _createChallengedProposal() internal returns (uint256) {
-        // Create proposal
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test proposal"), "Test Proposal");
 
-        // Approve optimistically
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // Challenge it
         vm.prank(validator2);
         proposalManager.challengeProposal(proposalId);
 
         return proposalId;
     }
 
-    // Initiate Consensus Tests
+    // === Initiate Consensus ===
     function test_InitiateConsensus_Success() public {
         uint256 proposalId = _createChallengedProposal();
         uint256 expectedEndBlock = block.number + VOTING_PERIOD;
@@ -158,7 +145,6 @@ contract ConsensusEngineTest is Test {
     }
 
     function test_InitiateConsensus_RevertIfProposalNotChallenged() public {
-        // Create proposal without challenging
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
 
@@ -178,7 +164,7 @@ contract ConsensusEngineTest is Test {
         consensusEngine.initiateConsensus(proposalId);
     }
 
-    // Cast Vote Tests
+    // === Cast Vote ===
     function test_CastVote_Success() public {
         uint256 proposalId = _createChallengedProposal();
 
@@ -209,17 +195,14 @@ contract ConsensusEngineTest is Test {
         vm.prank(consensusInitiator);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
-        // Validator1 votes for
         bytes memory signature1 = _createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true);
         vm.prank(validator1);
         consensusEngine.castVote(roundId, true, signature1);
 
-        // Validator2 votes against
         bytes memory signature2 = _createVoteSignature(VALIDATOR2_PRIVATE_KEY, roundId, false);
         vm.prank(validator2);
         consensusEngine.castVote(roundId, false, signature2);
 
-        // Validator3 votes for
         bytes memory signature3 = _createVoteSignature(VALIDATOR3_PRIVATE_KEY, roundId, true);
         vm.prank(validator3);
         consensusEngine.castVote(roundId, true, signature3);
@@ -256,9 +239,7 @@ contract ConsensusEngineTest is Test {
         vm.prank(consensusInitiator);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
-        // Move past voting period
         vm.roll(block.number + VOTING_PERIOD + 1);
-
         bytes memory signature = _createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true);
 
         vm.expectRevert(IConsensusEngine.VotingPeriodEnded.selector);
@@ -288,7 +269,6 @@ contract ConsensusEngineTest is Test {
         vm.prank(consensusInitiator);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
-        // Use wrong private key for signature
         bytes memory wrongSignature = _createVoteSignature(VALIDATOR2_PRIVATE_KEY, roundId, true);
 
         vm.expectRevert(IConsensusEngine.InvalidSignature.selector);
@@ -302,7 +282,6 @@ contract ConsensusEngineTest is Test {
         vm.prank(consensusInitiator);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
-        // Vote and finalize
         bytes memory signature1 = _createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true);
         vm.prank(validator1);
         consensusEngine.castVote(roundId, true, signature1);
@@ -314,21 +293,19 @@ contract ConsensusEngineTest is Test {
         vm.roll(block.number + VOTING_PERIOD + 1);
         consensusEngine.finalizeConsensus(roundId);
 
-        // Try to vote after finalization
         bytes memory signature3 = _createVoteSignature(VALIDATOR3_PRIVATE_KEY, roundId, true);
         vm.expectRevert(IConsensusEngine.RoundAlreadyFinalized.selector);
         vm.prank(validator3);
         consensusEngine.castVote(roundId, true, signature3);
     }
 
-    // Finalize Consensus Tests
+    // === Finalize Consensus ===
     function test_FinalizeConsensus_Success_Approved() public {
         uint256 proposalId = _createChallengedProposal();
 
         vm.prank(consensusInitiator);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
-        // 2 out of 3 validators vote for (67% > 60% quorum)
         bytes memory signature1 = _createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true);
         vm.prank(validator1);
         consensusEngine.castVote(roundId, true, signature1);
@@ -337,7 +314,6 @@ contract ConsensusEngineTest is Test {
         vm.prank(validator2);
         consensusEngine.castVote(roundId, true, signature2);
 
-        // Move past voting period
         vm.roll(block.number + VOTING_PERIOD + 1);
 
         vm.expectEmit(true, true, false, true);
@@ -346,7 +322,6 @@ contract ConsensusEngineTest is Test {
         bool approved = consensusEngine.finalizeConsensus(roundId);
         assertTrue(approved);
 
-        // Round should no longer be finalizable
         assertFalse(consensusEngine.canFinalizeRound(roundId));
     }
 
@@ -356,12 +331,10 @@ contract ConsensusEngineTest is Test {
         vm.prank(consensusInitiator);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
-        // Only 1 out of 3 validators vote (33% < 60% quorum)
         bytes memory signature1 = _createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true);
         vm.prank(validator1);
         consensusEngine.castVote(roundId, true, signature1);
 
-        // Move past voting period
         vm.roll(block.number + VOTING_PERIOD + 1);
 
         vm.expectEmit(true, true, false, true);
@@ -394,7 +367,7 @@ contract ConsensusEngineTest is Test {
         consensusEngine.finalizeConsensus(roundId);
     }
 
-    // Admin Tests
+    // === Admin Functions ===
     function test_SetConsensusInitiator_Success() public {
         address newInitiator = address(0x888);
 
@@ -414,7 +387,7 @@ contract ConsensusEngineTest is Test {
         consensusEngine.setConsensusInitiator(address(0));
     }
 
-    // View Functions Tests
+    // === View Functions ===
     function test_GetCurrentRound() public {
         uint256 proposalId = _createChallengedProposal();
 
@@ -456,7 +429,6 @@ contract ConsensusEngineTest is Test {
         assertEq(votesAgainst, 0);
         assertEq(totalValidators, 3);
 
-        // Cast some votes
         bytes memory signature1 = _createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true);
         vm.prank(validator1);
         consensusEngine.castVote(roundId, true, signature1);
@@ -477,14 +449,12 @@ contract ConsensusEngineTest is Test {
         vm.prank(consensusInitiator);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
-        // Should not be finalizable during voting period
         assertFalse(consensusEngine.canFinalizeRound(roundId));
 
         // Move past voting period
         vm.roll(block.number + VOTING_PERIOD + 1);
         assertTrue(consensusEngine.canFinalizeRound(roundId));
 
-        // After finalization
         consensusEngine.finalizeConsensus(roundId);
         assertFalse(consensusEngine.canFinalizeRound(roundId));
     }
@@ -497,13 +467,10 @@ contract ConsensusEngineTest is Test {
 
         bytes memory signature = _createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true);
 
-        // Should verify correctly
         assertTrue(consensusEngine.verifyVoteSignature(roundId, validator1, true, signature));
 
-        // Should fail with wrong validator
         assertFalse(consensusEngine.verifyVoteSignature(roundId, validator2, true, signature));
 
-        // Should fail with wrong vote
         assertFalse(consensusEngine.verifyVoteSignature(roundId, validator1, false, signature));
     }
 
@@ -515,14 +482,14 @@ contract ConsensusEngineTest is Test {
         assertEq(consensusEngine.getQuorumPercentage(), QUORUM_PERCENTAGE);
     }
 
-    // Edge Cases
+    // === Edge Cases ===
     function test_ConsensusRound_ExactQuorum() public {
         uint256 proposalId = _createChallengedProposal();
 
         vm.prank(consensusInitiator);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
-        // Exactly 67% vote for (2/3 validators, > 60% quorum)
+        // Edge case: Exactly 67% vote for (2/3 validators, > 60% quorum)
         bytes memory signature1 = _createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true);
         vm.prank(validator1);
         consensusEngine.castVote(roundId, true, signature1);
@@ -531,7 +498,6 @@ contract ConsensusEngineTest is Test {
         vm.prank(validator2);
         consensusEngine.castVote(roundId, true, signature2);
 
-        // Third validator votes against
         bytes memory signature3 = _createVoteSignature(VALIDATOR3_PRIVATE_KEY, roundId, false);
         vm.prank(validator3);
         consensusEngine.castVote(roundId, false, signature3);
@@ -541,7 +507,6 @@ contract ConsensusEngineTest is Test {
         assertTrue(approved);
     }
 
-    // Fuzz Tests
     function testFuzz_VotingScenarios(uint8 votesFor, uint8 votesAgainst) public {
         vm.assume(votesFor <= 3 && votesAgainst <= 3);
         vm.assume(votesFor + votesAgainst <= 3);
@@ -555,7 +520,6 @@ contract ConsensusEngineTest is Test {
         uint256[3] memory privateKeys = [VALIDATOR1_PRIVATE_KEY, VALIDATOR2_PRIVATE_KEY, VALIDATOR3_PRIVATE_KEY];
         address[3] memory validators = [validator1, validator2, validator3];
 
-        // Cast "for" votes
         for (uint256 i = 0; i < votesFor; i++) {
             bytes memory signature = _createVoteSignature(privateKeys[validatorIndex], roundId, true);
             vm.prank(validators[validatorIndex]);
@@ -563,7 +527,6 @@ contract ConsensusEngineTest is Test {
             validatorIndex++;
         }
 
-        // Cast "against" votes
         for (uint256 i = 0; i < votesAgainst; i++) {
             bytes memory signature = _createVoteSignature(privateKeys[validatorIndex], roundId, false);
             vm.prank(validators[validatorIndex]);
@@ -575,11 +538,10 @@ contract ConsensusEngineTest is Test {
         assertEq(roundVotesFor, votesFor);
         assertEq(roundVotesAgainst, votesAgainst);
 
-        // Move past voting period and finalize
         vm.roll(block.number + VOTING_PERIOD + 1);
         bool approved = consensusEngine.finalizeConsensus(roundId);
 
-        // Check if quorum is met (60% of 3 validators = 1.8, so 2 votes needed)
+        // Quorum calculation: 60% of 3 validators = 1.8, so 2 votes needed
         bool expectedApproval = (votesFor + votesAgainst) >= 2 && votesFor > votesAgainst;
         assertEq(approved, expectedApproval);
     }

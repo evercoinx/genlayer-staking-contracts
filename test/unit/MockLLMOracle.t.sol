@@ -5,10 +5,6 @@ import { Test } from "@forge-std/Test.sol";
 import { IMockLLMOracle } from "../../src/interfaces/IMockLLMOracle.sol";
 import { MockLLMOracle } from "../../src/MockLLMOracle.sol";
 
-/**
- * @title MockLLMOracleTest
- * @dev Test suite for MockLLMOracle contract.
- */
 contract MockLLMOracleTest is Test {
     MockLLMOracle public oracle;
 
@@ -19,34 +15,34 @@ contract MockLLMOracleTest is Test {
         oracle = new MockLLMOracle();
     }
 
-    // Single Validation Tests
+    // === Single Validation ===
     function test_ValidateProposal_EvenHash() public {
         uint256 proposalId = 1;
-        bytes32 evenHash = bytes32(uint256(0x1234)); // Even last byte
+        bytes32 evenHash = bytes32(uint256(0x1234));
 
         vm.expectEmit(true, false, false, true);
         emit ValidationPerformed(proposalId, evenHash, true);
 
         bool result = oracle.validateProposal(proposalId, evenHash);
 
-        assertTrue(result, "Even hash should be valid");
+        assertTrue(result);
         assertEq(oracle.getTotalValidations(), 1);
     }
 
     function test_ValidateProposal_OddHash() public {
         uint256 proposalId = 2;
-        bytes32 oddHash = bytes32(uint256(0x1235)); // Odd last byte
+        bytes32 oddHash = bytes32(uint256(0x1235));
 
         vm.expectEmit(true, false, false, true);
         emit ValidationPerformed(proposalId, oddHash, false);
 
         bool result = oracle.validateProposal(proposalId, oddHash);
 
-        assertFalse(result, "Odd hash should be invalid");
+        assertFalse(result);
         assertEq(oracle.getTotalValidations(), 1);
     }
 
-    // Batch Validation Tests
+    // === Batch Validation ===
     function test_BatchValidateProposals_Success() public {
         uint256[] memory proposalIds = new uint256[](3);
         bytes32[] memory hashes = new bytes32[](3);
@@ -55,9 +51,9 @@ contract MockLLMOracleTest is Test {
         proposalIds[1] = 2;
         proposalIds[2] = 3;
 
-        hashes[0] = bytes32(uint256(0x1234)); // Even
-        hashes[1] = bytes32(uint256(0x1235)); // Odd
-        hashes[2] = bytes32(uint256(0x1236)); // Even
+        hashes[0] = bytes32(uint256(0x1234));
+        hashes[1] = bytes32(uint256(0x1235));
+        hashes[2] = bytes32(uint256(0x1236));
 
         bool[] memory expectedResults = new bool[](3);
         expectedResults[0] = true;
@@ -70,9 +66,9 @@ contract MockLLMOracleTest is Test {
         bool[] memory results = oracle.batchValidateProposals(proposalIds, hashes);
 
         assertEq(results.length, 3);
-        assertTrue(results[0], "First hash should be valid");
-        assertFalse(results[1], "Second hash should be invalid");
-        assertTrue(results[2], "Third hash should be valid");
+        assertTrue(results[0]);
+        assertFalse(results[1]);
+        assertTrue(results[2]);
         assertEq(oracle.getTotalValidations(), 3);
     }
 
@@ -101,7 +97,7 @@ contract MockLLMOracleTest is Test {
         oracle.batchValidateProposals(proposalIds, hashes);
     }
 
-    // Check Validation Tests
+    // === Check Validation ===
     function test_CheckValidation_EvenHash() public view {
         bytes32 evenHash = bytes32(uint256(0x1234));
         assertTrue(oracle.checkValidation(evenHash));
@@ -112,7 +108,7 @@ contract MockLLMOracleTest is Test {
         assertFalse(oracle.checkValidation(oddHash));
     }
 
-    // View Function Tests
+    // === View Functions ===
     function test_GetMaxBatchSize() public view {
         assertEq(oracle.getMaxBatchSize(), 100);
     }
@@ -136,7 +132,6 @@ contract MockLLMOracleTest is Test {
         assertEq(oracle.getTotalValidations(), 4);
     }
 
-    // Fuzz Tests
     function testFuzz_ValidateProposal(uint256 proposalId, bytes32 hash) public {
         bool expectedResult = uint8(hash[31]) % 2 == 0;
 
@@ -168,7 +163,6 @@ contract MockLLMOracleTest is Test {
         assertEq(results.length, batchSize);
         assertEq(oracle.getTotalValidations(), batchSize);
 
-        // Verify each result
         for (uint256 i = 0; i < batchSize; i++) {
             bool expectedResult = uint8(hashes[i][31]) % 2 == 0;
             assertEq(results[i], expectedResult);

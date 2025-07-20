@@ -30,7 +30,7 @@ contract GLTTokenTest is Test {
         token = new GLTToken(minter);
     }
 
-    // Constructor Tests
+    // === Constructor ===
     function test_Constructor_InitializesCorrectly() public view {
         assertEq(token.name(), "GenLayer Token");
         assertEq(token.symbol(), "GLT");
@@ -46,7 +46,7 @@ contract GLTTokenTest is Test {
         new GLTToken(address(0));
     }
 
-    // Minter Management Tests
+    // === Minter Management ===
     function test_SetMinter_OnlyOwner() public {
         address newMinter = makeAddr("newMinter");
 
@@ -68,7 +68,7 @@ contract GLTTokenTest is Test {
         token.setMinter(address(0));
     }
 
-    // Minting Tests
+    // === Minting ===
     function test_Mint_Success() public {
         uint256 amount = 1000e18;
 
@@ -135,7 +135,7 @@ contract GLTTokenTest is Test {
         vm.stopPrank();
     }
 
-    // Burning Tests
+    // === Burning ===
     function test_Burn_ByOwner() public {
         uint256 mintAmount = 1000e18;
         uint256 burnAmount = 400e18;
@@ -223,7 +223,7 @@ contract GLTTokenTest is Test {
         token.burn(alice, burnAmount);
     }
 
-    // ERC20 Standard Tests
+    // === ERC20 Standard ===
     function test_Transfer_Success() public {
         uint256 amount = 1000e18;
         uint256 transferAmount = 300e18;
@@ -268,7 +268,7 @@ contract GLTTokenTest is Test {
         assertEq(token.allowance(alice, bob), amount);
     }
 
-    // Edge Cases
+    // === Edge Cases ===
     function test_BurnEntireBalance() public {
         uint256 amount = 1000e18;
 
@@ -313,7 +313,6 @@ contract GLTTokenTest is Test {
         assertEq(token.totalSupply(), 0);
     }
 
-    // Fuzz Tests
     function testFuzz_Mint(address to, uint256 amount) public {
         vm.assume(to != address(0));
         vm.assume(amount > 0 && amount <= MAX_SUPPLY);
