@@ -2,7 +2,6 @@
 pragma solidity 0.8.28;
 
 import { Test } from "@forge-std/Test.sol";
-import { console2 } from "@forge-std/console2.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { IValidatorRegistry } from "../../src/interfaces/IValidatorRegistry.sol";
@@ -130,7 +129,6 @@ contract EdgeCaseIntegrationTest is Test {
 
     // Test: Challenge window expiry during active dispute
     function test_EdgeCase_ChallengeWindowExpiryDuringDispute() public {
-        console2.log("=== Edge Case: Challenge Window Expiry During Dispute ===");
 
         // 1. Create and approve proposal
         vm.prank(validator1);
@@ -144,7 +142,6 @@ contract EdgeCaseIntegrationTest is Test {
 
         vm.prank(validator2);
         uint256 disputeId = disputeResolver.createDispute(proposalId, 100e18);
-        console2.log("Dispute created 1 block before challenge window expires");
 
         // 3. Move past challenge window
         vm.roll(block.number + 2);
@@ -162,16 +159,13 @@ contract EdgeCaseIntegrationTest is Test {
         vm.warp(block.timestamp + DISPUTE_VOTING_PERIOD + 1);
         disputeResolver.resolveDispute(disputeId);
 
-        console2.log("Dispute resolved successfully after challenge window expired");
     }
 
     // Test: Maximum validators reached
     function test_EdgeCase_MaximumValidatorsReached() public {
-        console2.log("=== Edge Case: Maximum Validators Reached ===");
 
         // Get current active validator limit
         uint256 activeValidatorLimit = validatorRegistry.getActiveValidatorLimit();
-        console2.log("Active validator limit:", activeValidatorLimit);
 
         // Register validators up to activeValidatorLimit (we already have 3)
         for (uint256 i = 4; i <= activeValidatorLimit; i++) {
@@ -186,7 +180,6 @@ contract EdgeCaseIntegrationTest is Test {
 
         address[] memory activeValidators = validatorRegistry.getActiveValidators();
         assertEq(activeValidators.length, activeValidatorLimit);
-        console2.log("Maximum active validators reached:", activeValidatorLimit);
 
         // Try to add one more with higher stake
         address extraValidator = address(0xEEEE);
@@ -201,12 +194,10 @@ contract EdgeCaseIntegrationTest is Test {
         activeValidators = validatorRegistry.getActiveValidators();
         assertEq(activeValidators.length, activeValidatorLimit);
         assertTrue(validatorRegistry.isActiveValidator(extraValidator));
-        console2.log("Higher staked validator replaced lowest staked one");
     }
 
     // Test: Consensus with minimum quorum exactly met
     function test_EdgeCase_MinimumQuorumExactlyMet() public {
-        console2.log("=== Edge Case: Minimum Quorum Exactly Met ===");
 
         // Create proposal and challenge it
         vm.prank(validator1);
@@ -230,18 +221,15 @@ contract EdgeCaseIntegrationTest is Test {
         vm.prank(validator2);
         consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR2_PRIVATE_KEY, roundId, true));
 
-        console2.log("Cast 2/3 votes (66.67%) - exceeding 60% quorum");
 
         // Finalize
         vm.roll(block.number + VOTING_PERIOD + 1);
         bool approved = consensusEngine.finalizeConsensus(roundId);
         assertTrue(approved);
-        console2.log("Consensus approved with exact quorum");
     }
 
     // Test: Insufficient balance for challenge stake
     function test_EdgeCase_InsufficientBalanceForChallenge() public {
-        console2.log("=== Edge Case: Insufficient Balance for Challenge ===");
 
         // Create proposal
         vm.prank(validator1);
@@ -260,12 +248,10 @@ contract EdgeCaseIntegrationTest is Test {
         vm.prank(validator3);
         disputeResolver.createDispute(proposalId, 100e18);
 
-        console2.log("Dispute creation failed due to insufficient balance");
     }
 
     // Test: Validator unstaking during active consensus
     function test_EdgeCase_ValidatorUnstakingDuringConsensus() public {
-        console2.log("=== Edge Case: Validator Unstaking During Consensus ===");
 
         // Create proposal and initiate consensus
         vm.prank(validator1);
@@ -288,25 +274,21 @@ contract EdgeCaseIntegrationTest is Test {
         vm.prank(validator2);
         validatorRegistry.requestUnstake(1500e18); // Full unstake
 
-        console2.log("Validator2 requested unstaking during consensus");
 
         // Validator2 tries to vote after requesting unstake
         vm.expectRevert(IConsensusEngine.NotActiveValidator.selector);
         vm.prank(validator2);
         consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR2_PRIVATE_KEY, roundId, true));
 
-        console2.log("Unstaking validator cannot vote in consensus");
 
         // Finalize with reduced validator set
         vm.roll(block.number + VOTING_PERIOD + 1);
         bool approved = consensusEngine.finalizeConsensus(roundId);
         assertFalse(approved); // Only 1/2 validators voted (50% < 60%)
-        console2.log("Consensus failed due to insufficient participation");
     }
 
     // Test: Multiple disputes on same proposal
     function test_EdgeCase_MultipleDisputesOnSameProposal() public {
-        console2.log("=== Edge Case: Multiple Disputes on Same Proposal ===");
 
         // Create and approve proposal
         vm.prank(validator1);
@@ -322,7 +304,6 @@ contract EdgeCaseIntegrationTest is Test {
         vm.prank(validator3);
         uint256 disputeId2 = disputeResolver.createDispute(proposalId, 150e18);
 
-        console2.log("Created 2 disputes on same proposal");
 
         // Different outcomes for each dispute
         // Dispute 1: Challenger wins - need 2 votes out of 3 (>= 50%)
@@ -348,12 +329,10 @@ contract EdgeCaseIntegrationTest is Test {
         disputeResolver.resolveDispute(disputeId1);
         IDisputeResolver.Dispute memory dispute1 = disputeResolver.getDispute(disputeId1);
         assertTrue(dispute1.challengerWon);
-        console2.log("Dispute 1: Challenger won (2/3 votes)");
 
         disputeResolver.resolveDispute(disputeId2);
         IDisputeResolver.Dispute memory dispute2 = disputeResolver.getDispute(disputeId2);
         assertFalse(dispute2.challengerWon);
-        console2.log("Dispute 2: Proposer won (1/3 votes)");
 
         // Check disputes array
         uint256[] memory disputes = disputeResolver.getDisputesByProposal(proposalId);
@@ -362,7 +341,6 @@ contract EdgeCaseIntegrationTest is Test {
 
     // Test: Tie vote in consensus
     function test_EdgeCase_TieVoteInConsensus() public {
-        console2.log("=== Edge Case: Tie Vote in Consensus ===");
 
         // Setup 4th validator with proper private key
         uint256 validator4PrivateKey = 0x4444;
@@ -396,18 +374,15 @@ contract EdgeCaseIntegrationTest is Test {
         vm.prank(validator4);
         consensusEngine.castVote(roundId, false, createVoteSignature(validator4PrivateKey, roundId, false));
 
-        console2.log("Created tie: 2 for, 2 against");
 
         // Finalize - tie should result in rejection (not meeting quorum)
         vm.roll(block.number + VOTING_PERIOD + 1);
         bool approved = consensusEngine.finalizeConsensus(roundId);
         assertFalse(approved);
-        console2.log("Tie vote results in proposal rejection");
     }
 
     // Test: Zero participation in consensus
     function test_EdgeCase_ZeroParticipationInConsensus() public {
-        console2.log("=== Edge Case: Zero Participation in Consensus ===");
 
         // Create proposal and challenge
         vm.prank(validator1);
@@ -424,7 +399,6 @@ contract EdgeCaseIntegrationTest is Test {
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
         // No one votes
-        console2.log("No validators vote in consensus");
 
         // Finalize with zero participation
         vm.roll(block.number + VOTING_PERIOD + 1);
@@ -433,12 +407,10 @@ contract EdgeCaseIntegrationTest is Test {
 
         IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
         assertEq(uint8(proposal.state), uint8(IProposalManager.ProposalState.Challenged));
-        console2.log("Zero participation - proposal remains in Challenged state");
     }
 
     // Test: Validator slashed multiple times
     function test_EdgeCase_ValidatorSlashedMultipleTimes() public {
-        console2.log("=== Edge Case: Validator Slashed Multiple Times ===");
 
         // Validator1 creates multiple bad proposals
         uint256[] memory proposalIds = new uint256[](3);
@@ -457,11 +429,9 @@ contract EdgeCaseIntegrationTest is Test {
             disputeIds[i] = disputeResolver.createDispute(proposalIds[i], 100e18);
         }
 
-        console2.log("Created 3 disputes against validator1");
 
         // Resolve all disputes against validator1
         IValidatorRegistry.ValidatorInfo memory infoBefore = validatorRegistry.getValidatorInfo(validator1);
-        console2.log("Validator1 stake before slashing:", infoBefore.stakedAmount / 1e18);
 
         // Vote on all disputes first - need 2 votes out of 3 for challenger to win
         for (uint256 i = 0; i < 3; i++) {
@@ -484,7 +454,6 @@ contract EdgeCaseIntegrationTest is Test {
         }
 
         IValidatorRegistry.ValidatorInfo memory infoAfter = validatorRegistry.getValidatorInfo(validator1);
-        console2.log("Validator1 stake after 3 slashings:", infoAfter.stakedAmount / 1e18);
 
         // Check cumulative slashing effect
         uint256 totalSlashed = infoBefore.stakedAmount - infoAfter.stakedAmount;
@@ -493,7 +462,6 @@ contract EdgeCaseIntegrationTest is Test {
         if (infoAfter.stakedAmount < MINIMUM_STAKE) {
             assertEq(uint8(infoAfter.status), uint8(IValidatorRegistry.ValidatorStatus.Slashed));
             assertFalse(validatorRegistry.isActiveValidator(validator1));
-            console2.log("Validator1 slashed below minimum and deactivated");
         }
     }
 }
