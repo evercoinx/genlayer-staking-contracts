@@ -32,11 +32,11 @@ forge coverage
 # Format code
 forge fmt
 
-# Gas optimization tracking
-forge snapshot              # Generate .gas-snapshot file
-forge snapshot --check      # Check if gas usage has changed
+# Gas optimization tracking (local development only)
+forge snapshot              # Generate .gas-snapshot file (gitignored)
+forge snapshot --check      # Check if gas usage has changed locally
 forge snapshot --diff       # Show gas usage differences
-make gas                    # Alias for forge snapshot --gas-report
+make gas                    # Generate gas report
 ```
 
 ### Deployment Commands

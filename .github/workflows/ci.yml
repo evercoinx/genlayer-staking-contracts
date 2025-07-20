@@ -37,14 +37,6 @@ jobs:
       - name: Run tests
         run: make test
 
-      - name: Check gas snapshots
-        run: |
-          forge snapshot --check
-          if [ $? -ne 0 ]; then
-            echo "Gas usage has changed. Please run 'make gas' and commit the updated .gas-snapshot file."
-            exit 1
-          fi
-
       - name: Generate gas report
         run: forge test --gas-report > gas-report.txt
       
