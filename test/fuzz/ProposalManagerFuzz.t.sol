@@ -122,7 +122,19 @@ contract ProposalManagerFuzzTest is Test {
 
     // Fuzz test: State transitions with random operations
     function testFuzz_StateTransitions(uint8[] memory operations) public {
-        vm.assume(operations.length > 0 && operations.length <= 30);
+        // Use bound instead of assume to avoid rejecting inputs
+        if (operations.length == 0) {
+            operations = new uint8[](1);
+            operations[0] = 0;
+        }
+        if (operations.length > 30) {
+            // Truncate to 30 operations
+            uint8[] memory truncated = new uint8[](30);
+            for (uint256 i = 0; i < 30; i++) {
+                truncated[i] = operations[i];
+            }
+            operations = truncated;
+        }
 
         // Create initial proposal
         vm.prank(validator1);

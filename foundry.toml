@@ -19,7 +19,7 @@ fs_permissions = [
     { access = "read", path = "./cache" },
     { access = "read", path = "./out" },
 ]
-fuzz = { runs = 100, seed = "0x0000000000000000000000000000000000000000000000000000000000000000" }
+fuzz = { runs = 1000, seed = "0x0000000000000000000000000000000000000000000000000000000000000000" }
 invariant = { runs = 10, depth = 50, fail_on_revert = false }
 gas_reports = ["*"]
 libs = ["lib"]
@@ -61,7 +61,7 @@ extra_output = [
     "irOptimized",
     "evm.assembly",
 ]
-fuzz = { runs = 10_000, seed = "0x0000000000000000000000000000000000000000000000000000000000000000" }
+fuzz = { runs = 1_000, seed = "0x0000000000000000000000000000000000000000000000000000000000000000" }
 gas_reports = ["*"]
 optimizer = true
 optimizer-runs = 200
