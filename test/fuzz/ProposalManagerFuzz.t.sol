@@ -74,7 +74,7 @@ contract ProposalManagerFuzzTest is Test {
             validProposals++;
         }
 
-        assertEq(proposalManager.getTotalProposals(), validProposals);
+        assertEq(proposalManager.totalProposals(), validProposals);
 
         uint256[] memory proposerProposals = proposalManager.getProposalsByProposer(validator1);
         assertEq(proposerProposals.length, validProposals);

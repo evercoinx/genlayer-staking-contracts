@@ -85,6 +85,13 @@ interface IProposalManager {
     event LLMValidationUpdated(uint256 indexed proposalId, bool validated);
 
     /**
+     * @dev Emitted when the proposal manager address is updated.
+     * @param oldManager The previous proposal manager address.
+     * @param newManager The new proposal manager address.
+     */
+    event ProposalManagerUpdated(address indexed oldManager, address indexed newManager);
+
+    /**
      * @dev Error thrown when a proposal is not found.
      */
     error ProposalNotFound();
@@ -135,9 +142,19 @@ interface IProposalManager {
     error CallerNotProposalManager();
 
     /**
-     * @dev Error thrown when zero address is provided.
+     * @dev Error thrown when zero validator registry address is provided.
      */
-    error ZeroAddress();
+    error ZeroValidatorRegistry();
+
+    /**
+     * @dev Error thrown when zero LLM oracle address is provided.
+     */
+    error ZeroLLMOracle();
+
+    /**
+     * @dev Error thrown when zero proposal manager address is provided.
+     */
+    error ZeroProposalManager();
 
     /**
      * @dev Error thrown when validator has already approved a proposal.
@@ -211,17 +228,13 @@ interface IProposalManager {
      */
     function getProposalsByState(ProposalState state) external view returns (uint256[] memory proposalIds);
 
-    /**
-     * @dev Returns the total number of proposals.
-     * @return count The total proposal count.
-     */
-    function getTotalProposals() external view returns (uint256 count);
 
     /**
-     * @dev Returns the challenge window duration.
-     * @return duration The challenge window duration in seconds.
+     * @dev Sets a new proposal manager address. Only callable by owner.
+     * @param newProposalManager The address to grant proposal management privileges to.
      */
-    function getChallengeWindowDuration() external view returns (uint256 duration);
+    function setProposalManager(address newProposalManager) external;
+
 
     /**
      * @dev Checks if a proposal can be challenged.

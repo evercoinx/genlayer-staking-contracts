@@ -139,7 +139,7 @@ contract ProposalManagerTest is Test {
 
         assertEq(proposalId1, 1);
         assertEq(proposalId2, 2);
-        assertEq(proposalManager.getTotalProposals(), 2);
+        assertEq(proposalManager.totalProposals(), 2);
     }
 
     // === Optimistic Approval ===
@@ -379,6 +379,10 @@ contract ProposalManagerTest is Test {
     // === Admin Functions ===
     function test_SetProposalManager_Success() public {
         address newManager = address(0x999);
+        address oldManager = proposalManager.proposalManager();
+
+        vm.expectEmit(true, true, false, true);
+        emit IProposalManager.ProposalManagerUpdated(oldManager, newManager);
 
         proposalManager.setProposalManager(newManager);
 
@@ -392,7 +396,7 @@ contract ProposalManagerTest is Test {
     }
 
     function test_SetProposalManager_RevertIfZeroAddress() public {
-        vm.expectRevert(IProposalManager.ZeroAddress.selector);
+        vm.expectRevert(IProposalManager.ZeroProposalManager.selector);
         proposalManager.setProposalManager(address(0));
     }
 
@@ -402,21 +406,7 @@ contract ProposalManagerTest is Test {
         proposalManager.getProposal(999);
     }
 
-    function test_GetTotalProposals() public {
-        assertEq(proposalManager.getTotalProposals(), 0);
 
-        vm.prank(validator1);
-        proposalManager.createProposal(keccak256("1"), "Test 1");
-        assertEq(proposalManager.getTotalProposals(), 1);
-
-        vm.prank(validator2);
-        proposalManager.createProposal(keccak256("2"), "Test 2");
-        assertEq(proposalManager.getTotalProposals(), 2);
-    }
-
-    function test_GetChallengeWindowDuration() public view {
-        assertEq(proposalManager.getChallengeWindowDuration(), CHALLENGE_WINDOW_DURATION);
-    }
 
     function test_CanChallenge() public {
         vm.prank(validator1);

@@ -13,50 +13,16 @@ import { IValidatorRegistry } from "./interfaces/IValidatorRegistry.sol";
  * Handles proposal creation, state transitions, and lifecycle management.
  */
 contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
-    /**
-     * @dev Challenge window duration (10 blocks as per requirements).
-     */
     uint256 public constant CHALLENGE_WINDOW_DURATION = 10;
-
-    /**
-     * @dev Counter for proposal IDs.
-     */
-    uint256 private proposalCounter;
-
-    /**
-     * @dev Mapping from proposal ID to proposal data.
-     */
-    mapping(uint256 => Proposal) private proposals;
-
-    /**
-     * @dev Mapping from proposer address to their proposal IDs.
-     */
-    mapping(address => uint256[]) private proposerToProposals;
-
-    /**
-     * @dev Array of proposal IDs by state for efficient querying.
-     */
-    mapping(ProposalState => uint256[]) private proposalsByState;
-
-    /**
-     * @dev Mapping to track if a validator has approved a proposal.
-     */
-    mapping(uint256 => mapping(address => bool)) private hasValidatorApproved;
-
-    /**
-     * @dev Validator registry contract.
-     */
     IValidatorRegistry public immutable validatorRegistry;
-
-    /**
-     * @dev Mock LLM oracle contract.
-     */
     IMockLLMOracle public immutable llmOracle;
 
-    /**
-     * @dev Address authorized to manage proposals.
-     */
     address public proposalManager;
+    uint256 public totalProposals;
+    mapping(uint256 => Proposal) private proposals;
+    mapping(address => uint256[]) private proposerToProposals;
+    mapping(ProposalState => uint256[]) private proposalsByState;
+    mapping(uint256 => mapping(address => bool)) private hasValidatorApproved;
 
     /**
      * @dev Modifier to restrict functions to active validators.
@@ -81,22 +47,24 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @param _proposalManager Address authorized to manage proposals.
      */
     constructor(address _validatorRegistry, address _llmOracle, address _proposalManager) Ownable(msg.sender) {
-        require(
-            _validatorRegistry != address(0) && _llmOracle != address(0) && _proposalManager != address(0),
-            ZeroAddress()
-        );
+        require(_validatorRegistry != address(0), ZeroValidatorRegistry());
         validatorRegistry = IValidatorRegistry(_validatorRegistry);
+
+        require(_llmOracle != address(0), ZeroLLMOracle());
         llmOracle = IMockLLMOracle(_llmOracle);
+
+        require(_proposalManager != address(0), ZeroProposalManager());
         proposalManager = _proposalManager;
     }
 
     /**
-     * @dev Sets a new proposal manager address. Only callable by owner.
-     * @param newProposalManager The address to grant proposal management privileges to.
+     * @inheritdoc IProposalManager
      */
-    function setProposalManager(address newProposalManager) external onlyOwner {
-        require(newProposalManager != address(0), ZeroAddress());
+    function setProposalManager(address newProposalManager) external override onlyOwner {
+        require(newProposalManager != address(0), ZeroProposalManager());
+        address oldManager = proposalManager;
         proposalManager = newProposalManager;
+        emit ProposalManagerUpdated(oldManager, newProposalManager);
     }
 
     /**
@@ -107,13 +75,14 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
         string calldata metadata
     )
         external
+        override
         nonReentrant
         returns (uint256 proposalId)
     {
         require(contentHash != bytes32(0), InvalidContentHash());
         require(bytes(metadata).length != 0, EmptyMetadata());
 
-        proposalId = ++proposalCounter;
+        proposalId = ++totalProposals;
 
         Proposal storage newProposal = proposals[proposalId];
         newProposal.id = proposalId;
@@ -137,7 +106,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IProposalManager
      */
-    function approveOptimistically(uint256 proposalId) external onlyProposalManager {
+    function approveOptimistically(uint256 proposalId) external override onlyProposalManager {
         Proposal storage proposal = proposals[proposalId];
         require(proposal.id != 0, ProposalNotFound());
         require(proposal.state == ProposalState.Proposed, InvalidStateTransition());
@@ -153,7 +122,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IProposalManager
      */
-    function challengeProposal(uint256 proposalId) external onlyActiveValidator {
+    function challengeProposal(uint256 proposalId) external override onlyActiveValidator {
         Proposal storage proposal = proposals[proposalId];
         require(proposal.id != 0, ProposalNotFound());
         require(proposal.state == ProposalState.OptimisticApproved, ProposalNotChallengeable());
@@ -168,7 +137,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IProposalManager
      */
-    function finalizeProposal(uint256 proposalId) external {
+    function finalizeProposal(uint256 proposalId) external override {
         Proposal storage proposal = proposals[proposalId];
         require(proposal.id != 0, ProposalNotFound());
         require(proposal.state == ProposalState.OptimisticApproved, InvalidStateTransition());
@@ -183,7 +152,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IProposalManager
      */
-    function rejectProposal(uint256 proposalId, string calldata reason) external onlyProposalManager {
+    function rejectProposal(uint256 proposalId, string calldata reason) external override onlyProposalManager {
         Proposal storage proposal = proposals[proposalId];
         require(proposal.id != 0, ProposalNotFound());
         require(
@@ -201,7 +170,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IProposalManager
      */
-    function updateLLMValidation(uint256 proposalId, bool validated) external onlyProposalManager {
+    function updateLLMValidation(uint256 proposalId, bool validated) external override onlyProposalManager {
         Proposal storage proposal = proposals[proposalId];
         require(proposal.id != 0, ProposalNotFound());
 
@@ -212,15 +181,13 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IProposalManager
      */
-    function recordValidatorApproval(uint256 proposalId) external onlyActiveValidator {
+    function recordValidatorApproval(uint256 proposalId) external override onlyActiveValidator {
         Proposal storage proposal = proposals[proposalId];
         require(proposal.id != 0, ProposalNotFound());
         require(
             proposal.state == ProposalState.Proposed || proposal.state == ProposalState.OptimisticApproved,
             InvalidStateTransition()
         );
-
-        // Prevent double approval from same validator
         require(!hasValidatorApproved[proposalId][msg.sender], ValidatorAlreadyApproved());
 
         hasValidatorApproved[proposalId][msg.sender] = true;
@@ -232,7 +199,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IProposalManager
      */
-    function getProposal(uint256 proposalId) external view returns (Proposal memory) {
+    function getProposal(uint256 proposalId) external view override returns (Proposal memory) {
         Proposal memory proposal = proposals[proposalId];
         require(proposal.id != 0, ProposalNotFound());
         return proposal;
@@ -241,35 +208,23 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IProposalManager
      */
-    function getProposalsByProposer(address proposer) external view returns (uint256[] memory) {
+    function getProposalsByProposer(address proposer) external view override returns (uint256[] memory) {
         return proposerToProposals[proposer];
     }
 
     /**
      * @inheritdoc IProposalManager
      */
-    function getProposalsByState(ProposalState state) external view returns (uint256[] memory) {
+    function getProposalsByState(ProposalState state) external view override returns (uint256[] memory) {
         return proposalsByState[state];
     }
 
-    /**
-     * @inheritdoc IProposalManager
-     */
-    function getTotalProposals() external view returns (uint256) {
-        return proposalCounter;
-    }
+
 
     /**
      * @inheritdoc IProposalManager
      */
-    function getChallengeWindowDuration() external pure returns (uint256) {
-        return CHALLENGE_WINDOW_DURATION;
-    }
-
-    /**
-     * @inheritdoc IProposalManager
-     */
-    function canChallenge(uint256 proposalId) external view returns (bool) {
+    function canChallenge(uint256 proposalId) external view override returns (bool) {
         Proposal memory proposal = proposals[proposalId];
         return proposal.id != 0 && proposal.state == ProposalState.OptimisticApproved
             && block.number <= proposal.challengeWindowEnd;
@@ -278,39 +233,29 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IProposalManager
      */
-    function canFinalize(uint256 proposalId) external view returns (bool) {
+    function canFinalize(uint256 proposalId) external view override returns (bool) {
         Proposal memory proposal = proposals[proposalId];
         return proposal.id != 0 && proposal.state == ProposalState.OptimisticApproved
             && block.number > proposal.challengeWindowEnd;
     }
 
     /**
-     * @dev Checks if a validator has already approved a proposal.
-     * @param proposalId The ID of the proposal.
-     * @param validator The address of the validator.
-     * @return True if the validator has approved the proposal.
+     * @inheritdoc IProposalManager
      */
-    function hasApproved(uint256 proposalId, address validator) external view returns (bool) {
+    function hasApproved(uint256 proposalId, address validator) external view override returns (bool) {
         return hasValidatorApproved[proposalId][validator];
     }
 
     /**
-     * @dev Batch function to get multiple proposals at once.
-     * @param proposalIds Array of proposal IDs to retrieve.
-     * @return Array of proposals.
+     * @inheritdoc IProposalManager
      */
-    function getProposals(uint256[] calldata proposalIds) external view returns (Proposal[] memory) {
+    function getProposals(uint256[] calldata proposalIds) external view override returns (Proposal[] memory) {
         uint256 length = proposalIds.length;
         Proposal[] memory result = new Proposal[](length);
 
-        for (uint256 i = 0; i < length;) {
+        for (uint256 i = 0; i < length; ++i) {
             result[i] = proposals[proposalIds[i]];
-            if (result[i].id == 0) {
-                revert ProposalNotFound();
-            }
-            unchecked {
-                ++i;
-            }
+            require(result[i].id != 0, ProposalNotFound());
         }
 
         return result;
@@ -323,21 +268,16 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @param toState The new state.
      */
     function _updateProposalStateArrays(uint256 proposalId, ProposalState fromState, ProposalState toState) private {
-        // Remove from old state array
         uint256[] storage fromArray = proposalsByState[fromState];
         uint256 length = fromArray.length;
-        for (uint256 i = 0; i < length;) {
+        for (uint256 i = 0; i < length; ++i) {
             if (fromArray[i] == proposalId) {
                 fromArray[i] = fromArray[length - 1];
                 fromArray.pop();
                 break;
             }
-            unchecked {
-                ++i;
-            }
         }
 
-        // Add to new state array
         proposalsByState[toState].push(proposalId);
     }
 }

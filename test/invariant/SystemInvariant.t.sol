@@ -89,7 +89,7 @@ contract SystemInvariantTest is Test {
      * @dev Invariant: Proposal states are valid
      */
     function invariant_ProposalStatesValid() public view {
-        uint256 totalProposals = proposalManager.getTotalProposals();
+        uint256 totalProposals = proposalManager.totalProposals();
         uint256 startIndex = totalProposals > 10 ? totalProposals - 9 : 1;
 
         for (uint256 i = startIndex; i <= totalProposals; i++) {
