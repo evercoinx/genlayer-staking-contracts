@@ -16,19 +16,17 @@ import { ValidatorRegistry } from "../src/ValidatorRegistry.sol";
  *
  * Usage:
  * forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast
- * 
+ *
  * For localhost deployment with test setup:
  * forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
  */
 contract Deploy is Script {
-    uint256 constant INITIAL_GLT_SUPPLY = 100_000_000e18;
-    
-    uint256 constant TEST_VALIDATOR_STAKE = 10_000e18;
-    uint256 constant TEST_VALIDATOR_COUNT = 3;
-    
-    address constant TEST_VALIDATOR_1 = address(0x1111111111111111111111111111111111111111);
-    address constant TEST_VALIDATOR_2 = address(0x2222222222222222222222222222222222222222);
-    address constant TEST_VALIDATOR_3 = address(0x3333333333333333333333333333333333333333);
+    uint256 public constant INITIAL_GLT_SUPPLY = 100_000_000e18;
+    uint256 public constant TEST_VALIDATOR_STAKE = 10_000e18;
+    uint256 public constant TEST_VALIDATOR_COUNT = 3;
+    address public constant TEST_VALIDATOR_1 = address(0x1111111111111111111111111111111111111111);
+    address public constant TEST_VALIDATOR_2 = address(0x2222222222222222222222222222222222222222);
+    address public constant TEST_VALIDATOR_3 = address(0x3333333333333333333333333333333333333333);
 
     function run() external {
         uint256 deployerPrivateKey = uint256(vm.envBytes32("PRIVATE_KEY"));
@@ -45,25 +43,15 @@ contract Deploy is Script {
         MockLLMOracle llmOracle = new MockLLMOracle();
         console2.log("MockLLMOracle deployed at:", address(llmOracle));
 
-        ValidatorRegistry validatorRegistry = new ValidatorRegistry(
-            address(gltToken),
-            deployer
-        );
+        ValidatorRegistry validatorRegistry = new ValidatorRegistry(address(gltToken), deployer);
         console2.log("ValidatorRegistry deployed at:", address(validatorRegistry));
         console2.log("ValidatorBeacon deployed at:", validatorRegistry.getValidatorBeacon());
 
-        ProposalManager proposalManager = new ProposalManager(
-            address(validatorRegistry),
-            address(llmOracle),
-            deployer
-        );
+        ProposalManager proposalManager = new ProposalManager(address(validatorRegistry), address(llmOracle), deployer);
         console2.log("ProposalManager deployed at:", address(proposalManager));
 
-        ConsensusEngine consensusEngine = new ConsensusEngine(
-            address(validatorRegistry),
-            address(proposalManager),
-            deployer
-        );
+        ConsensusEngine consensusEngine =
+            new ConsensusEngine(address(validatorRegistry), address(proposalManager), deployer);
         console2.log("ConsensusEngine deployed at:", address(consensusEngine));
 
         DisputeResolver disputeResolver =
@@ -90,15 +78,15 @@ contract Deploy is Script {
             address(consensusEngine),
             address(disputeResolver)
         );
-        
-        if (block.chainid == 31337) {
+
+        if (block.chainid == 31_337) {
             console2.log("\n=====================================");
             console2.log("Setting up test validators for localhost...");
             console2.log("=====================================");
             _setupTestValidators(gltToken, validatorRegistry, deployerPrivateKey);
         }
     }
-    
+
     function _logDeploymentSummary(
         address gltToken,
         address llmOracle,
@@ -106,7 +94,10 @@ contract Deploy is Script {
         address proposalManager,
         address consensusEngine,
         address disputeResolver
-    ) internal view {
+    )
+        internal
+        view
+    {
         console2.log("=====================================");
         console2.log("Architecture: Beacon Proxy Pattern");
         console2.log("=====================================");
@@ -127,34 +118,40 @@ contract Deploy is Script {
         console2.log("- Active validator limit:", ValidatorRegistry(validatorRegistry).getActiveValidatorLimit());
         console2.log("=====================================");
     }
-    
+
     function _setupTestValidators(
         GLTToken gltToken,
         ValidatorRegistry validatorRegistry,
         uint256 deployerPrivateKey
-    ) internal {
+    )
+        internal
+    {
         vm.startBroadcast(deployerPrivateKey);
-        
+
         address[3] memory testValidators = [TEST_VALIDATOR_1, TEST_VALIDATOR_2, TEST_VALIDATOR_3];
-        
+
         for (uint256 i = 0; i < TEST_VALIDATOR_COUNT; i++) {
             gltToken.mint(testValidators[i], TEST_VALIDATOR_STAKE);
             console2.log("Minted", TEST_VALIDATOR_STAKE / 1e18, "GLT to validator:", testValidators[i]);
         }
-        
+
         console2.log("\nTo complete setup, validators need to:");
         console2.log("1. Approve GLT tokens to ValidatorRegistry");
         console2.log("2. Call registerValidator() with their stake");
-        
+
         for (uint256 i = 0; i < TEST_VALIDATOR_COUNT; i++) {
             console2.log("\nValidator", i + 1, ":", testValidators[i]);
             console2.log("Run these commands:");
-            console2.log("cast send <GLT_TOKEN> \"approve(address,uint256)\" <VALIDATOR_REGISTRY> <STAKE_AMOUNT> --private-key <VALIDATOR_PRIVATE_KEY> --rpc-url http://127.0.0.1:8545");
-            console2.log("cast send <VALIDATOR_REGISTRY> \"registerValidator(uint256)\" <STAKE_AMOUNT> --private-key <VALIDATOR_PRIVATE_KEY> --rpc-url http://127.0.0.1:8545");
+            console2.log(
+                "cast send <GLT_TOKEN> \"approve(address,uint256)\" <VALIDATOR_REGISTRY> <STAKE_AMOUNT> --private-key <VALIDATOR_PRIVATE_KEY> --rpc-url http://127.0.0.1:8545"
+            );
+            console2.log(
+                "cast send <VALIDATOR_REGISTRY> \"registerValidator(uint256)\" <STAKE_AMOUNT> --private-key <VALIDATOR_PRIVATE_KEY> --rpc-url http://127.0.0.1:8545"
+            );
         }
-        
+
         vm.stopBroadcast();
-        
+
         console2.log("\n=====================================");
         console2.log("Validator Registry Status:");
         console2.log("=====================================");
