@@ -83,7 +83,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @dev Modifier to restrict functions to only the slasher.
      */
     modifier onlySlasher() {
-        require(msg.sender == slasher, "ValidatorRegistryBeacon: caller is not the slasher");
+        require(msg.sender == slasher, CallerNotSlasher());
         _;
     }
 
@@ -134,7 +134,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @param newLimit The new active validator limit (must be between 1 and MAX_VALIDATORS).
      */
     function setActiveValidatorLimit(uint256 newLimit) external onlyOwner {
-        require(newLimit > 0 && newLimit <= MAX_VALIDATORS, "Invalid validator limit");
+        require(newLimit > 0 && newLimit <= MAX_VALIDATORS, InvalidValidatorLimit());
         activeValidatorLimit = newLimit;
         _updateActiveValidatorSet();
     }
@@ -357,7 +357,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @return topValidators The addresses of the top N validators.
      */
     function getTopValidators(uint256 n) external view returns (address[] memory topValidators) {
-        require(n > 0, "ValidatorRegistry: invalid count");
+        require(n > 0, InvalidCount());
         
         uint256 count = n < activeValidators.length ? n : activeValidators.length;
         topValidators = new address[](count);
@@ -374,7 +374,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @return isTop True if the validator is in the top N.
      */
     function isTopValidator(address validator, uint256 n) external view returns (bool isTop) {
-        require(n > 0, "ValidatorRegistry: invalid count");
+        require(n > 0, InvalidCount());
         
         uint256 count = n < activeValidators.length ? n : activeValidators.length;
         

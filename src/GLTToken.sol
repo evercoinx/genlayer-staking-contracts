@@ -26,7 +26,7 @@ contract GLTToken is ERC20, Ownable, IGLTToken {
      * @dev Modifier to restrict functions to only the minter.
      */
     modifier onlyMinter() {
-        require(msg.sender == minter, "GLTToken: caller is not the minter");
+        require(msg.sender == minter, CallerNotMinter());
         _;
     }
 
@@ -36,9 +36,7 @@ contract GLTToken is ERC20, Ownable, IGLTToken {
      * @param initialMinter The address that will have minting privileges.
      */
     constructor(address initialMinter) ERC20("GenLayer Token", "GLT") Ownable(msg.sender) {
-        if (initialMinter == address(0)) {
-            revert MintToZeroAddress();
-        }
+        require(initialMinter != address(0), MintToZeroAddress());
         minter = initialMinter;
     }
 
@@ -47,9 +45,7 @@ contract GLTToken is ERC20, Ownable, IGLTToken {
      * @param newMinter The address to grant minting privileges to.
      */
     function setMinter(address newMinter) external onlyOwner {
-        if (newMinter == address(0)) {
-            revert MintToZeroAddress();
-        }
+        require(newMinter != address(0), MintToZeroAddress());
         minter = newMinter;
     }
 
@@ -57,15 +53,9 @@ contract GLTToken is ERC20, Ownable, IGLTToken {
      * @inheritdoc IGLTToken
      */
     function mint(address to, uint256 amount) external override onlyMinter {
-        if (to == address(0)) {
-            revert MintToZeroAddress();
-        }
-        if (amount == 0) {
-            revert MintZeroAmount();
-        }
-        if (totalSupply() + amount > MAX_SUPPLY) {
-            revert ExceedsMaxSupply();
-        }
+        require(to != address(0), MintToZeroAddress());
+        require(amount > 0, MintZeroAmount());
+        require(totalSupply() + amount <= MAX_SUPPLY, ExceedsMaxSupply());
 
         _mint(to, amount);
         emit TokensMinted(to, amount);
@@ -75,15 +65,9 @@ contract GLTToken is ERC20, Ownable, IGLTToken {
      * @inheritdoc IGLTToken
      */
     function burn(address from, uint256 amount) external override {
-        if (from == address(0)) {
-            revert BurnFromZeroAddress();
-        }
-        if (amount == 0) {
-            revert BurnZeroAmount();
-        }
-        if (balanceOf(from) < amount) {
-            revert BurnExceedsBalance();
-        }
+        require(from != address(0), BurnFromZeroAddress());
+        require(amount > 0, BurnZeroAmount());
+        require(balanceOf(from) >= amount, BurnExceedsBalance());
 
         // If caller is not the token owner, we need to check and update allowance
         if (from != msg.sender) {

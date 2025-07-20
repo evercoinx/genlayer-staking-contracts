@@ -128,6 +128,21 @@ interface IDisputeResolver {
     error ZeroChallengeStake();
 
     /**
+     * @dev Error thrown when caller is not an active validator.
+     */
+    error CallerNotActiveValidator();
+
+    /**
+     * @dev Error thrown when zero address is provided.
+     */
+    error ZeroAddress();
+
+    /**
+     * @dev Error thrown when signature is invalid.
+     */
+    error InvalidSignature();
+
+    /**
      * @dev Creates a new dispute for a proposal.
      * @param proposalId The ID of the proposal to dispute.
      * @param challengeStake The amount to stake for the challenge.

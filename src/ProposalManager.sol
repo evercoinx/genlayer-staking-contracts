@@ -59,7 +59,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     modifier onlyActiveValidator() {
         require(
             validatorRegistry.isActiveValidator(msg.sender),
-            "ProposalManager: caller is not an active validator"
+            CallerNotActiveValidator()
         );
         _;
     }
@@ -68,7 +68,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @dev Modifier to restrict functions to proposal manager.
      */
     modifier onlyProposalManager() {
-        require(msg.sender == proposalManager, "ProposalManager: caller is not the proposal manager");
+        require(msg.sender == proposalManager, CallerNotProposalManager());
         _;
     }
 
@@ -85,7 +85,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     ) Ownable(msg.sender) {
         require(
             _validatorRegistry != address(0) && _llmOracle != address(0) && _proposalManager != address(0),
-            "ProposalManager: zero address"
+            ZeroAddress()
         );
         validatorRegistry = IValidatorRegistry(_validatorRegistry);
         llmOracle = IMockLLMOracle(_llmOracle);
@@ -97,7 +97,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @param newProposalManager The address to grant proposal management privileges to.
      */
     function setProposalManager(address newProposalManager) external onlyOwner {
-        require(newProposalManager != address(0), "ProposalManager: zero address");
+        require(newProposalManager != address(0), ZeroAddress());
         proposalManager = newProposalManager;
     }
 

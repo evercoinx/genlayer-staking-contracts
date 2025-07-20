@@ -315,7 +315,7 @@ contract ValidatorRegistryTest is Test {
         vm.stopPrank();
 
         vm.startPrank(validator2);
-        vm.expectRevert("ValidatorRegistryBeacon: caller is not the slasher");
+        vm.expectRevert(IValidatorRegistry.CallerNotSlasher.selector);
         registry.slashValidator(validator1, 100e18, "reason");
         vm.stopPrank();
     }
@@ -555,12 +555,12 @@ contract ValidatorRegistryTest is Test {
     }
 
     function test_RevertWhen_GetTopValidators_InvalidCount() public {
-        vm.expectRevert("ValidatorRegistry: invalid count");
+        vm.expectRevert(IValidatorRegistry.InvalidCount.selector);
         registry.getTopValidators(0);
     }
 
     function test_RevertWhen_IsTopValidator_InvalidCount() public {
-        vm.expectRevert("ValidatorRegistry: invalid count");
+        vm.expectRevert(IValidatorRegistry.InvalidCount.selector);
         registry.isTopValidator(validator1, 0);
     }
 

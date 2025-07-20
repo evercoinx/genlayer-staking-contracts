@@ -171,7 +171,7 @@ contract ProposalManagerTest is Test {
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
         
-        vm.expectRevert("ProposalManager: caller is not the proposal manager");
+        vm.expectRevert(IProposalManager.CallerNotProposalManager.selector);
         vm.prank(validator2);
         proposalManager.approveOptimistically(proposalId);
     }
@@ -217,7 +217,7 @@ contract ProposalManagerTest is Test {
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
         
-        vm.expectRevert("ProposalManager: caller is not an active validator");
+        vm.expectRevert(IProposalManager.CallerNotActiveValidator.selector);
         vm.prank(nonValidator);
         proposalManager.challengeProposal(proposalId);
     }
@@ -322,7 +322,7 @@ contract ProposalManagerTest is Test {
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
         
-        vm.expectRevert("ProposalManager: caller is not the proposal manager");
+        vm.expectRevert(IProposalManager.CallerNotProposalManager.selector);
         vm.prank(validator2);
         proposalManager.rejectProposal(proposalId, "Unauthorized reject");
     }
@@ -358,7 +358,7 @@ contract ProposalManagerTest is Test {
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
         
-        vm.expectRevert("ProposalManager: caller is not the proposal manager");
+        vm.expectRevert(IProposalManager.CallerNotProposalManager.selector);
         vm.prank(validator1);
         proposalManager.updateLLMValidation(proposalId, true);
     }
@@ -385,7 +385,7 @@ contract ProposalManagerTest is Test {
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
         
-        vm.expectRevert("ProposalManager: caller is not an active validator");
+        vm.expectRevert(IProposalManager.CallerNotActiveValidator.selector);
         vm.prank(nonValidator);
         proposalManager.recordValidatorApproval(proposalId);
     }
@@ -406,7 +406,7 @@ contract ProposalManagerTest is Test {
     }
 
     function test_SetProposalManager_RevertIfZeroAddress() public {
-        vm.expectRevert("ProposalManager: zero address");
+        vm.expectRevert(IProposalManager.ZeroAddress.selector);
         proposalManager.setProposalManager(address(0));
     }
 

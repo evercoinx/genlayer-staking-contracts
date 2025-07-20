@@ -82,7 +82,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
     modifier onlyActiveValidator() {
         require(
             validatorRegistry.isActiveValidator(msg.sender),
-            "DisputeResolver: caller is not an active validator"
+            CallerNotActiveValidator()
         );
         _;
     }
@@ -102,7 +102,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
             _gltToken != address(0) && 
             _validatorRegistry != address(0) && 
             _proposalManager != address(0),
-            "DisputeResolver: zero address"
+            ZeroAddress()
         );
         gltToken = IERC20(_gltToken);
         validatorRegistry = IValidatorRegistry(_validatorRegistry);
@@ -182,7 +182,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
 
         // Verify signature
         if (!_verifyDisputeVoteSignature(disputeId, msg.sender, supportChallenge, signature)) {
-            revert("DisputeResolver: invalid signature");
+            revert InvalidSignature();
         }
 
         // Record vote

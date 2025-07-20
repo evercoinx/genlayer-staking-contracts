@@ -200,7 +200,7 @@ contract DisputeResolverTest is Test {
     function test_CreateDispute_RevertIfNotActiveValidator() public {
         uint256 proposalId = _createOptimisticallyApprovedProposal();
         
-        vm.expectRevert("DisputeResolver: caller is not an active validator");
+        vm.expectRevert(IDisputeResolver.CallerNotActiveValidator.selector);
         vm.prank(nonValidator);
         disputeResolver.createDispute(proposalId, MINIMUM_CHALLENGE_STAKE);
     }
@@ -320,7 +320,7 @@ contract DisputeResolverTest is Test {
         vm.prank(validator3);
         uint256 disputeId = disputeResolver.createDispute(proposalId, 200e18);
         
-        vm.expectRevert("DisputeResolver: caller is not an active validator");
+        vm.expectRevert(IDisputeResolver.CallerNotActiveValidator.selector);
         vm.prank(nonValidator);
         disputeResolver.voteOnDispute(disputeId, true, _createVoteSignature(uint256(uint160(msg.sender)), disputeId, true));
     }

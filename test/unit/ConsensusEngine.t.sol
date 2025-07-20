@@ -168,7 +168,7 @@ contract ConsensusEngineTest is Test {
     function test_InitiateConsensus_RevertIfNotInitiator() public {
         uint256 proposalId = _createChallengedProposal();
         
-        vm.expectRevert("ConsensusEngine: caller is not the consensus initiator");
+        vm.expectRevert(IConsensusEngine.CallerNotConsensusInitiator.selector);
         vm.prank(validator1);
         consensusEngine.initiateConsensus(proposalId);
     }
@@ -178,7 +178,7 @@ contract ConsensusEngineTest is Test {
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
         
-        vm.expectRevert("ConsensusEngine: proposal not in challenged state");
+        vm.expectRevert(IConsensusEngine.ProposalNotInChallengedState.selector);
         vm.prank(consensusInitiator);
         consensusEngine.initiateConsensus(proposalId);
     }
@@ -426,7 +426,7 @@ contract ConsensusEngineTest is Test {
     }
 
     function test_SetConsensusInitiator_RevertIfZeroAddress() public {
-        vm.expectRevert("ConsensusEngine: zero address");
+        vm.expectRevert(IConsensusEngine.ZeroAddress.selector);
         consensusEngine.setConsensusInitiator(address(0));
     }
 

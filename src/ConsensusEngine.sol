@@ -77,7 +77,7 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
      * @dev Modifier to restrict functions to consensus initiator.
      */
     modifier onlyConsensusInitiator() {
-        require(msg.sender == consensusInitiator, "ConsensusEngine: caller is not the consensus initiator");
+        require(msg.sender == consensusInitiator, CallerNotConsensusInitiator());
         _;
     }
 
@@ -96,7 +96,7 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
             _validatorRegistry != address(0) && 
             _proposalManager != address(0) && 
             _consensusInitiator != address(0),
-            "ConsensusEngine: zero address"
+            ZeroAddress()
         );
         validatorRegistry = IValidatorRegistry(_validatorRegistry);
         proposalManager = IProposalManager(_proposalManager);
@@ -108,7 +108,7 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
      * @param newInitiator The address to grant consensus initiation privileges to.
      */
     function setConsensusInitiator(address newInitiator) external onlyOwner {
-        require(newInitiator != address(0), "ConsensusEngine: zero address");
+        require(newInitiator != address(0), ZeroAddress());
         consensusInitiator = newInitiator;
     }
 
@@ -120,7 +120,7 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
         IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
         require(
             proposal.state == IProposalManager.ProposalState.Challenged,
-            "ConsensusEngine: proposal not in challenged state"
+            ProposalNotInChallengedState()
         );
 
         // Check if proposal already has active round

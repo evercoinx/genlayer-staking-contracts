@@ -129,6 +129,21 @@ interface IValidatorRegistry {
     error MaxValidatorsReached();
 
     /**
+     * @dev Error thrown when caller is not the slasher.
+     */
+    error CallerNotSlasher();
+
+    /**
+     * @dev Error thrown when validator limit is invalid.
+     */
+    error InvalidValidatorLimit();
+
+    /**
+     * @dev Error thrown when count parameter is invalid.
+     */
+    error InvalidCount();
+
+    /**
      * @dev Registers a new validator with the specified stake.
      * @param stakeAmount The amount of GLT tokens to stake.
      */

@@ -55,6 +55,11 @@ interface IGLTToken is IERC20, IERC20Metadata {
     error ExceedsMaxSupply();
 
     /**
+     * @dev Error thrown when caller is not the minter.
+     */
+    error CallerNotMinter();
+
+    /**
      * @dev Mints new tokens to the specified address.
      * @param to The address to mint tokens to.
      * @param amount The amount of tokens to mint.

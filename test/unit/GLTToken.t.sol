@@ -101,7 +101,7 @@ contract GLTTokenTest is Test {
 
     function test_Mint_RevertIfNotMinter() public {
         vm.prank(alice);
-        vm.expectRevert("GLTToken: caller is not the minter");
+        vm.expectRevert(IGLTToken.CallerNotMinter.selector);
         token.mint(bob, 1000e18);
     }
 

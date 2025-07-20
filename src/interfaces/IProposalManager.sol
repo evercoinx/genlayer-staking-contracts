@@ -110,6 +110,21 @@ interface IProposalManager {
     error ProposalNotChallengeable();
 
     /**
+     * @dev Error thrown when caller is not an active validator.
+     */
+    error CallerNotActiveValidator();
+
+    /**
+     * @dev Error thrown when caller is not the proposal manager.
+     */
+    error CallerNotProposalManager();
+
+    /**
+     * @dev Error thrown when zero address is provided.
+     */
+    error ZeroAddress();
+
+    /**
      * @dev Creates a new proposal.
      * @param contentHash The hash of the proposal content.
      * @param metadata Additional metadata for the proposal.

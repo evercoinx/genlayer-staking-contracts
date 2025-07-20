@@ -109,6 +109,21 @@ interface IConsensusEngine {
     error ProposalAlreadyInConsensus();
 
     /**
+     * @dev Error thrown when caller is not the consensus initiator.
+     */
+    error CallerNotConsensusInitiator();
+
+    /**
+     * @dev Error thrown when zero address is provided.
+     */
+    error ZeroAddress();
+
+    /**
+     * @dev Error thrown when proposal is not in challenged state.
+     */
+    error ProposalNotInChallengedState();
+
+    /**
      * @dev Initiates a consensus round for a proposal.
      * @param proposalId The ID of the proposal.
      * @return roundId The ID of the created consensus round.
