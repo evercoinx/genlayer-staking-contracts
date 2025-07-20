@@ -84,6 +84,13 @@ interface IValidatorRegistry {
     event ValidatorProxyCreated(address indexed validator, address indexed proxy, uint256 stakedAmount);
 
     /**
+     * @dev Emitted when the active validator limit is changed.
+     * @param oldLimit The previous limit.
+     * @param newLimit The new limit.
+     */
+    event ActiveValidatorLimitChanged(uint256 oldLimit, uint256 newLimit);
+
+    /**
      * @dev Error thrown when attempting to register with insufficient stake.
      */
     error InsufficientStake();

@@ -102,7 +102,14 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IProposalManager
      */
-    function createProposal(bytes32 contentHash, string calldata metadata) external nonReentrant returns (uint256 proposalId) {
+    function createProposal(
+        bytes32 contentHash,
+        string calldata metadata
+    )
+        external
+        nonReentrant
+        returns (uint256 proposalId)
+    {
         if (contentHash == bytes32(0)) {
             revert InvalidContentHash();
         }
@@ -236,13 +243,13 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
         if (proposal.state != ProposalState.Proposed && proposal.state != ProposalState.OptimisticApproved) {
             revert InvalidStateTransition();
         }
-        
+
         // Prevent double approval from same validator
         require(!hasValidatorApproved[proposalId][msg.sender], "Validator already approved");
-        
+
         hasValidatorApproved[proposalId][msg.sender] = true;
         proposal.validatorApprovals++;
-        
+
         emit ValidatorApprovalRecorded(proposalId, msg.sender, proposal.validatorApprovals);
     }
 
@@ -321,7 +328,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     function getProposals(uint256[] calldata proposalIds) external view returns (Proposal[] memory) {
         uint256 length = proposalIds.length;
         Proposal[] memory result = new Proposal[](length);
-        
+
         for (uint256 i = 0; i < length;) {
             result[i] = proposals[proposalIds[i]];
             if (result[i].id == 0) {
@@ -331,7 +338,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
                 ++i;
             }
         }
-        
+
         return result;
     }
 

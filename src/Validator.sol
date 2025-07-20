@@ -51,14 +51,12 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
     ValidatorStatus public status;
 
     /**
-     * @dev Block number when unstaking was requested.
+     * @dev Packed storage for unstaking data.
+     * Bits 0-127: unstakeAmount (uint128)
+     * Bits 128-191: unstakeRequestBlock (uint64)
+     * Bits 192-255: unused
      */
-    uint256 public unstakeRequestBlock;
-
-    /**
-     * @dev Timestamp when the validator was activated.
-     */
-    uint256 public activationTime;
+    uint256 private _unstakeData;
 
     /**
      * @dev Validator metadata (can include node info, contact details, etc.).
@@ -66,9 +64,15 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
     string public metadata;
 
     /**
-     * @dev Amount requested for unstaking.
+     * @dev Checks if the bonding period has passed for unstaking.
      */
-    uint256 public unstakeAmount;
+    modifier bondingPeriodMet() {
+        uint256 requestBlock = uint64(_unstakeData >> 128);
+        if (block.number < requestBlock + BONDING_PERIOD) {
+            revert BondingPeriodNotMet();
+        }
+        _;
+    }
 
     /**
      * @dev Modifier to restrict functions to only the validator owner.
@@ -126,11 +130,12 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
         gltToken = IERC20(_gltToken);
         registry = _registry;
         status = ValidatorStatus.Active;
-        activationTime = block.timestamp;
 
         // Tokens are transferred by the registry during initialization
         emit StakeIncreased(_initialStake, _initialStake);
-        emit MetadataUpdated(_metadata);
+        if (bytes(_metadata).length > 0) {
+            emit MetadataUpdated(_metadata);
+        }
     }
 
     /**
@@ -170,8 +175,8 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
             revert InsufficientStake();
         }
 
-        unstakeAmount = amount;
-        unstakeRequestBlock = block.number;
+        // Pack unstake data
+        _unstakeData = uint256(uint128(amount)) | (uint256(uint64(block.number)) << 128);
 
         // If unstaking everything, mark as unstaking
         if (remainingStake == 0) {
@@ -184,21 +189,20 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
     /**
      * @inheritdoc IValidator
      */
-    function completeUnstake() external onlyRegistry {
-        if (unstakeAmount == 0) {
+    function completeUnstake() external onlyRegistry bondingPeriodMet {
+        uint256 amountToUnstake = uint128(_unstakeData);
+        if (amountToUnstake == 0) {
             revert ZeroAmount();
         }
-        if (block.number < unstakeRequestBlock + BONDING_PERIOD) {
-            revert BondingPeriodNotMet();
-        }
 
-        uint256 amountToUnstake = unstakeAmount;
         stakedAmount -= amountToUnstake;
-        unstakeAmount = 0;
+        _unstakeData = 0; // Clear both amount and block number
 
-        // If fully unstaked, mark as inactive
+        // Update status based on remaining stake
         if (stakedAmount == 0) {
             status = ValidatorStatus.Inactive;
+        } else {
+            status = ValidatorStatus.Active;
         }
 
         // Transfer GLT tokens back to the validator
@@ -214,22 +218,28 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
         if (status == ValidatorStatus.Slashed || status == ValidatorStatus.Inactive) {
             revert InvalidValidatorStatus();
         }
-        if (amount > stakedAmount) {
-            amount = stakedAmount;
-        }
 
-        stakedAmount -= amount;
+        // Cap the slash amount to current stake
+        uint256 actualSlashAmount = amount > stakedAmount ? stakedAmount : amount;
+        stakedAmount -= actualSlashAmount;
 
-        // If stake falls below minimum, mark as slashed
-        if (stakedAmount < MINIMUM_STAKE && stakedAmount > 0) {
-            status = ValidatorStatus.Slashed;
-        } else if (stakedAmount == 0) {
-            status = ValidatorStatus.Inactive;
-        }
+        // Update status based on remaining stake
+        _updateStatusAfterSlash();
 
         // Slashed tokens remain in this contract (could be transferred to treasury in future)
+        emit ValidatorSlashed(actualSlashAmount, reason);
+    }
 
-        emit ValidatorSlashed(amount, reason);
+    /**
+     * @dev Updates validator status after slashing based on remaining stake.
+     */
+    function _updateStatusAfterSlash() private {
+        if (stakedAmount == 0) {
+            status = ValidatorStatus.Inactive;
+        } else if (stakedAmount < MINIMUM_STAKE) {
+            status = ValidatorStatus.Slashed;
+        }
+        // Otherwise status remains Active
     }
 
     /**
@@ -248,8 +258,8 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
             validatorAddress: validatorAddress,
             stakedAmount: stakedAmount,
             status: status,
-            unstakeRequestTime: unstakeRequestBlock,
-            activationTime: activationTime,
+            unstakeRequestTime: uint64(_unstakeData >> 128),
+            activationTime: 0, // Removed as not needed
             metadata: metadata
         });
     }
@@ -286,6 +296,22 @@ contract Validator is IValidator, Initializable, ReentrancyGuardUpgradeable {
      * @inheritdoc IValidator
      */
     function canCompleteUnstake() external view returns (bool) {
-        return unstakeAmount > 0 && block.number >= unstakeRequestBlock + BONDING_PERIOD;
+        uint256 amount = uint128(_unstakeData);
+        uint256 requestBlock = uint64(_unstakeData >> 128);
+        return amount > 0 && block.number >= requestBlock + BONDING_PERIOD;
+    }
+
+    /**
+     * @dev Returns the unstake amount.
+     */
+    function unstakeAmount() external view returns (uint256) {
+        return uint128(_unstakeData);
+    }
+
+    /**
+     * @dev Returns the unstake request block.
+     */
+    function unstakeRequestBlock() external view returns (uint256) {
+        return uint64(_unstakeData >> 128);
     }
 }

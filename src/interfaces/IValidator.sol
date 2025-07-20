@@ -23,8 +23,8 @@ interface IValidator {
         address validatorAddress;
         uint256 stakedAmount;
         ValidatorStatus status;
-        uint256 unstakeRequestTime; // Actually stores block number now
-        uint256 activationTime;
+        uint256 unstakeRequestTime; // Block number when unstaking was requested
+        uint256 activationTime; // Deprecated - always returns 0
         string metadata;
     }
 

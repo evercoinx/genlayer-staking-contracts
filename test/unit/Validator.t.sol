@@ -77,7 +77,7 @@ contract ValidatorTest is Test {
         assertEq(info.stakedAmount, stakeAmount);
         assertEq(uint8(info.status), uint8(IValidator.ValidatorStatus.Active));
         assertEq(info.metadata, metadata);
-        assertEq(info.activationTime, block.timestamp);
+        assertEq(info.activationTime, 0); // Deprecated field
 
         // Check tokens were transferred
         assertEq(gltToken.balanceOf(address(validator)), stakeAmount);

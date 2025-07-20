@@ -83,7 +83,9 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @dev Modifier to restrict functions to only the slasher.
      */
     modifier onlySlasher() {
-        require(msg.sender == slasher, CallerNotSlasher());
+        if (msg.sender != slasher) {
+            revert CallerNotSlasher();
+        }
         _;
     }
 
@@ -134,8 +136,12 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @param newLimit The new active validator limit (must be between 1 and MAX_VALIDATORS).
      */
     function setActiveValidatorLimit(uint256 newLimit) external onlyOwner {
-        require(newLimit > 0 && newLimit <= MAX_VALIDATORS, InvalidValidatorLimit());
+        if (newLimit == 0 || newLimit > MAX_VALIDATORS) {
+            revert InvalidValidatorLimit();
+        }
+        uint256 oldLimit = activeValidatorLimit;
         activeValidatorLimit = newLimit;
+        emit ActiveValidatorLimitChanged(oldLimit, newLimit);
         _updateActiveValidatorSet();
     }
 
@@ -143,7 +149,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @inheritdoc IValidatorRegistry
      */
     function registerValidator(uint256 stakeAmount) external {
-        return registerValidatorWithMetadata(stakeAmount, "");
+        registerValidatorWithMetadata(stakeAmount, "");
     }
 
     /**
@@ -372,7 +378,9 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @return topValidators The addresses of the top N validators.
      */
     function getTopValidators(uint256 n) external view returns (address[] memory topValidators) {
-        require(n > 0, InvalidCount());
+        if (n == 0) {
+            revert InvalidCount();
+        }
 
         uint256 count = n < activeValidators.length ? n : activeValidators.length;
         topValidators = new address[](count);
@@ -389,7 +397,9 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @return isTop True if the validator is in the top N.
      */
     function isTopValidator(address validator, uint256 n) external view returns (bool isTop) {
-        require(n > 0, InvalidCount());
+        if (n == 0) {
+            revert InvalidCount();
+        }
 
         uint256 count = n < activeValidators.length ? n : activeValidators.length;
 
@@ -491,21 +501,22 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
             }
         }
 
-        // Sort validators by stake amount (descending)
+        // Sort validators by stake amount (descending) using insertion sort
+        // Insertion sort is more gas efficient for small arrays
         if (eligibleCount > 1) {
-            for (uint256 i = 0; i < eligibleCount - 1; i++) {
-                for (uint256 j = 0; j < eligibleCount - i - 1; j++) {
-                    if (stakes[j] < stakes[j + 1]) {
-                        // Swap stakes
-                        uint256 tempStake = stakes[j];
-                        stakes[j] = stakes[j + 1];
-                        stakes[j + 1] = tempStake;
-                        // Swap addresses
-                        address tempAddr = eligibleValidators[j];
-                        eligibleValidators[j] = eligibleValidators[j + 1];
-                        eligibleValidators[j + 1] = tempAddr;
-                    }
+            for (uint256 i = 1; i < eligibleCount; i++) {
+                uint256 keyStake = stakes[i];
+                address keyAddr = eligibleValidators[i];
+                uint256 j = i;
+
+                while (j > 0 && stakes[j - 1] < keyStake) {
+                    stakes[j] = stakes[j - 1];
+                    eligibleValidators[j] = eligibleValidators[j - 1];
+                    j--;
                 }
+
+                stakes[j] = keyStake;
+                eligibleValidators[j] = keyAddr;
             }
         }
 

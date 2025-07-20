@@ -30,6 +30,14 @@ contract ValidatorBeacon is UpgradeableBeacon {
      * @param newImplementation The new validator implementation address.
      */
     function upgradeImplementation(address newImplementation) external onlyOwner {
+        // Validate new implementation address
+        if (newImplementation == address(0)) {
+            revert("ValidatorBeacon: implementation is zero address");
+        }
+        if (newImplementation == implementation()) {
+            revert("ValidatorBeacon: implementation unchanged");
+        }
+
         upgradeTo(newImplementation);
         emit ValidatorImplementationUpgraded(newImplementation);
     }

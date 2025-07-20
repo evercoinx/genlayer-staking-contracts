@@ -616,18 +616,17 @@ contract ProposalManagerTest is Test {
     function test_GetProposals_BatchRetrieve() public {
         // Create multiple proposals
         uint256[] memory proposalIds = new uint256[](3);
-        
+
         for (uint256 i = 0; i < 3; i++) {
             vm.prank(validator1);
             proposalIds[i] = proposalManager.createProposal(
-                keccak256(abi.encodePacked("test", i)), 
-                string(abi.encodePacked("Test ", i))
+                keccak256(abi.encodePacked("test", i)), string(abi.encodePacked("Test ", i))
             );
         }
 
         IProposalManager.Proposal[] memory proposals = proposalManager.getProposals(proposalIds);
         assertEq(proposals.length, 3);
-        
+
         for (uint256 i = 0; i < 3; i++) {
             assertEq(proposals[i].id, proposalIds[i]);
             assertEq(proposals[i].proposer, validator1);
