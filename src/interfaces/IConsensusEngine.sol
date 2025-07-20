@@ -117,6 +117,12 @@ interface IConsensusEngine {
     error ProposalNotInChallengedState();
 
     /**
+     * @dev Sets a new consensus initiator address. Only callable by owner.
+     * @param newInitiator The address to grant consensus initiation privileges to.
+     */
+    function setConsensusInitiator(address newInitiator) external;
+
+    /**
      * @dev Initiates a consensus round for a proposal.
      * @param proposalId The ID of the proposal.
      * @return roundId The ID of the created consensus round.

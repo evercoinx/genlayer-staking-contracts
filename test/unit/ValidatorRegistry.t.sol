@@ -15,16 +15,16 @@ import { GLTToken } from "../../src/GLTToken.sol";
  * @dev Test suite for ValidatorRegistry contract.
  */
 contract ValidatorRegistryTest is Test {
+    uint256 private constant MINIMUM_STAKE = 1000e18;
+    uint256 private constant BONDING_PERIOD = 1;
+    uint256 private constant MAX_VALIDATORS = 100;
+
     ValidatorRegistry public registry;
     GLTToken public gltToken;
     address public slasher;
     address public validator1;
     address public validator2;
     address public validator3;
-
-    uint256 public constant MINIMUM_STAKE = 1000e18;
-    uint256 public constant BONDING_PERIOD = 1;
-    uint256 public constant MAX_VALIDATORS = 100;
 
     event ValidatorRegistered(address indexed validator, uint256 stakedAmount);
     event ValidatorProxyCreated(address indexed validator, address indexed proxy, uint256 stakedAmount);
@@ -68,7 +68,7 @@ contract ValidatorRegistryTest is Test {
         emit ValidatorRegistered(validator1, stakeAmount);
 
         vm.expectEmit(true, false, false, true);
-        emit ValidatorProxyCreated(validator1, address(0), stakeAmount); // address(0) placeholder
+        emit ValidatorProxyCreated(validator1, address(0), stakeAmount);
 
         registry.registerValidatorWithMetadata(stakeAmount, metadata);
         vm.stopPrank();
@@ -305,7 +305,7 @@ contract ValidatorRegistryTest is Test {
         validators[1] = validator2;
         validators[2] = validator3;
 
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; ++i) {
             vm.startPrank(validators[i]);
             gltToken.approve(address(registry), stakes[i]);
             registry.registerValidator(stakes[i]);
@@ -428,7 +428,7 @@ contract ValidatorRegistryTest is Test {
         address[] memory validators = new address[](7);
         uint256[] memory stakes = new uint256[](7);
 
-        for (uint256 i = 0; i < 7; i++) {
+        for (uint256 i = 0; i < 7; ++i) {
             validators[i] = makeAddr(string(abi.encodePacked("validator", i)));
             stakes[i] = MINIMUM_STAKE + (i * 100e18);
             gltToken.mint(validators[i], stakes[i]);
@@ -445,7 +445,7 @@ contract ValidatorRegistryTest is Test {
         address[] memory top5 = registry.getTopValidators(5);
         assertEq(top5.length, 5);
 
-        for (uint256 i = 0; i < 4; i++) {
+        for (uint256 i = 0; i < 4; ++i) {
             IValidator.ValidatorInfo memory info1 = registry.getValidatorInfoWithMetadata(top5[i]);
             IValidator.ValidatorInfo memory info2 = registry.getValidatorInfoWithMetadata(top5[i + 1]);
             assertGe(info1.stakedAmount, info2.stakedAmount);
@@ -455,11 +455,13 @@ contract ValidatorRegistryTest is Test {
         assertLe(top10.length, 7);
 
         address[] memory top3 = registry.getTopValidators(3);
-        assertEq(top3.length, 3);
+        uint256 top3Length = top3.length;
+        assertEq(top3Length, 3);
 
-        for (uint256 i = 0; i < top3.length; i++) {
+        uint256 validatorsLength = validators.length;
+        for (uint256 i = 0; i < top3Length; ++i) {
             bool found = false;
-            for (uint256 j = 0; j < validators.length; j++) {
+            for (uint256 j = 0; j < validatorsLength; ++j) {
                 if (top3[i] == validators[j]) {
                     found = true;
                     break;
@@ -478,7 +480,7 @@ contract ValidatorRegistryTest is Test {
         stakes[3] = 2000e18;
         stakes[4] = 1000e18;
 
-        for (uint256 i = 0; i < 5; i++) {
+        for (uint256 i = 0; i < 5; ++i) {
             validators[i] = makeAddr(string(abi.encodePacked("validator", i)));
             gltToken.mint(validators[i], stakes[i]);
 
@@ -494,12 +496,12 @@ contract ValidatorRegistryTest is Test {
         assertFalse(registry.isTopValidator(validators[3], 3));
         assertFalse(registry.isTopValidator(validators[4], 3));
 
-        for (uint256 i = 0; i < 5; i++) {
+        for (uint256 i = 0; i < 5; ++i) {
             assertTrue(registry.isTopValidator(validators[i], 5));
         }
 
         assertTrue(registry.isTopValidator(validators[0], 1));
-        for (uint256 i = 1; i < 5; i++) {
+        for (uint256 i = 1; i < 5; ++i) {
             assertFalse(registry.isTopValidator(validators[i], 1));
         }
     }

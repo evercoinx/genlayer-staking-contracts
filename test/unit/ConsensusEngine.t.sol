@@ -21,6 +21,13 @@ contract ConsensusEngineTest is Test {
     using MessageHashUtils for bytes32;
     using ECDSA for bytes32;
 
+    uint256 private constant VALIDATOR1_PRIVATE_KEY = 0x1234;
+    uint256 private constant VALIDATOR2_PRIVATE_KEY = 0x5678;
+    uint256 private constant VALIDATOR3_PRIVATE_KEY = 0x9ABC;
+    uint256 private constant MINIMUM_STAKE = 1_000e18;
+    uint256 private constant VOTING_PERIOD = 100;
+    uint256 private constant QUORUM_PERCENTAGE = 60;
+
     ConsensusEngine public consensusEngine;
     ValidatorRegistry public validatorRegistry;
     ProposalManager public proposalManager;
@@ -32,18 +39,10 @@ contract ConsensusEngineTest is Test {
     address public proposalManagerRole = address(0x2);
     address public consensusInitiator = address(0x3);
 
-    uint256 constant VALIDATOR1_PRIVATE_KEY = 0x1234;
-    uint256 constant VALIDATOR2_PRIVATE_KEY = 0x5678;
-    uint256 constant VALIDATOR3_PRIVATE_KEY = 0x9ABC;
-
     address public validator1;
     address public validator2;
     address public validator3;
     address public nonValidator = address(0x999);
-
-    uint256 constant MINIMUM_STAKE = 1000e18;
-    uint256 constant VOTING_PERIOD = 100;
-    uint256 constant QUORUM_PERCENTAGE = 60;
 
     event ConsensusRoundStarted(
         uint256 indexed proposalId, uint256 indexed roundId, uint256 startBlock, uint256 endBlock
@@ -75,17 +74,17 @@ contract ConsensusEngineTest is Test {
         vm.prank(validator1);
         gltToken.approve(address(validatorRegistry), type(uint256).max);
         vm.prank(validator1);
-        validatorRegistry.registerValidator(3000e18);
+        validatorRegistry.registerValidator(3_000e18);
 
         vm.prank(validator2);
         gltToken.approve(address(validatorRegistry), type(uint256).max);
         vm.prank(validator2);
-        validatorRegistry.registerValidator(2000e18);
+        validatorRegistry.registerValidator(2_000e18);
 
         vm.prank(validator3);
         gltToken.approve(address(validatorRegistry), type(uint256).max);
         vm.prank(validator3);
-        validatorRegistry.registerValidator(1000e18);
+        validatorRegistry.registerValidator(1_000e18);
     }
 
     function _createVoteSignature(
@@ -524,14 +523,14 @@ contract ConsensusEngineTest is Test {
         uint256[3] memory privateKeys = [VALIDATOR1_PRIVATE_KEY, VALIDATOR2_PRIVATE_KEY, VALIDATOR3_PRIVATE_KEY];
         address[3] memory validators = [validator1, validator2, validator3];
 
-        for (uint256 i = 0; i < votesFor; i++) {
+        for (uint256 i = 0; i < votesFor; ++i) {
             bytes memory signature = _createVoteSignature(privateKeys[validatorIndex], roundId, true);
             vm.prank(validators[validatorIndex]);
             consensusEngine.castVote(roundId, true, signature);
             validatorIndex++;
         }
 
-        for (uint256 i = 0; i < votesAgainst; i++) {
+        for (uint256 i = 0; i < votesAgainst; ++i) {
             bytes memory signature = _createVoteSignature(privateKeys[validatorIndex], roundId, false);
             vm.prank(validators[validatorIndex]);
             consensusEngine.castVote(roundId, false, signature);

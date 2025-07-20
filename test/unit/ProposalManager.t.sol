@@ -13,6 +13,10 @@ import { GLTToken } from "../../src/GLTToken.sol";
  * @dev Test suite for ProposalManager contract.
  */
 contract ProposalManagerTest is Test {
+    // Constants
+    uint256 private constant MINIMUM_STAKE = 1_000e18;
+    uint256 private constant CHALLENGE_WINDOW_DURATION = 10;
+
     ProposalManager public proposalManager;
     ValidatorRegistry public validatorRegistry;
     MockLLMOracle public llmOracle;
@@ -25,9 +29,6 @@ contract ProposalManagerTest is Test {
     address public validator3 = address(0x4);
     address public nonValidator = address(0x5);
     address public proposalManagerRole = address(0x6);
-
-    uint256 constant MINIMUM_STAKE = 1000e18;
-    uint256 constant CHALLENGE_WINDOW_DURATION = 10;
 
     event ProposalCreated(uint256 indexed proposalId, address indexed proposer, bytes32 contentHash);
     event ProposalOptimisticallyApproved(uint256 indexed proposalId, uint256 challengeWindowEnd);
@@ -53,17 +54,17 @@ contract ProposalManagerTest is Test {
         vm.prank(validator1);
         gltToken.approve(address(validatorRegistry), type(uint256).max);
         vm.prank(validator1);
-        validatorRegistry.registerValidator(2000e18);
+        validatorRegistry.registerValidator(2_000e18);
 
         vm.prank(validator2);
         gltToken.approve(address(validatorRegistry), type(uint256).max);
         vm.prank(validator2);
-        validatorRegistry.registerValidator(2000e18);
+        validatorRegistry.registerValidator(2_000e18);
 
         vm.prank(validator3);
         gltToken.approve(address(validatorRegistry), type(uint256).max);
         vm.prank(validator3);
-        validatorRegistry.registerValidator(2000e18);
+        validatorRegistry.registerValidator(2_000e18);
     }
 
     // === Create Proposal ===
@@ -584,7 +585,7 @@ contract ProposalManagerTest is Test {
     function test_GetProposals_BatchRetrieve() public {
         uint256[] memory proposalIds = new uint256[](3);
 
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; ++i) {
             vm.prank(validator1);
             proposalIds[i] = proposalManager.createProposal(
                 keccak256(abi.encodePacked("test", i)), string(abi.encodePacked("Test ", i))
@@ -594,7 +595,7 @@ contract ProposalManagerTest is Test {
         IProposalManager.Proposal[] memory proposals = proposalManager.getProposals(proposalIds);
         assertEq(proposals.length, 3);
 
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; ++i) {
             assertEq(proposals[i].id, proposalIds[i]);
             assertEq(proposals[i].proposer, validator1);
         }

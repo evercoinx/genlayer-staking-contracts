@@ -74,10 +74,9 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Sets a new consensus initiator address. Only callable by owner.
-     * @param newInitiator The address to grant consensus initiation privileges to.
+     * @inheritdoc IConsensusEngine
      */
-    function setConsensusInitiator(address newInitiator) external onlyOwner {
+    function setConsensusInitiator(address newInitiator) external override onlyOwner {
         require(newInitiator != address(0), ZeroAddress());
         consensusInitiator = newInitiator;
     }
@@ -85,11 +84,10 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IConsensusEngine
      */
-    function initiateConsensus(uint256 proposalId) external onlyConsensusInitiator returns (uint256 roundId) {
+    function initiateConsensus(uint256 proposalId) external override onlyConsensusInitiator returns (uint256 roundId) {
         IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
         require(proposal.state == IProposalManager.ProposalState.Challenged, ProposalNotInChallengedState());
 
-        // Check if proposal already has active round
         uint256 currentRound = proposalToCurrentRound[proposalId];
         if (currentRound != 0) {
             ConsensusRound storage existingRound = consensusRounds[currentRound];
@@ -122,6 +120,7 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
         bytes calldata signature
     )
         external
+        override
         onlyActiveValidator
         nonReentrant
         roundExists(roundId)
@@ -151,6 +150,7 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
      */
     function finalizeConsensus(uint256 roundId)
         external
+        override
         nonReentrant
         roundExists(roundId)
         roundNotFinalized(roundId)
@@ -179,14 +179,14 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
     /**
      * @inheritdoc IConsensusEngine
      */
-    function getCurrentRound(uint256 proposalId) external view returns (uint256) {
+    function getCurrentRound(uint256 proposalId) external view override returns (uint256) {
         return proposalToCurrentRound[proposalId];
     }
 
     /**
      * @inheritdoc IConsensusEngine
      */
-    function getVote(uint256 roundId, address validator) external view returns (bool hasVoted, bool support) {
+    function getVote(uint256 roundId, address validator) external view override returns (bool hasVoted, bool support) {
         ConsensusRound storage round = consensusRounds[roundId];
         hasVoted = round.hasVoted[validator];
         if (hasVoted) {
@@ -200,6 +200,7 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
     function getVoteCounts(uint256 roundId)
         external
         view
+        override
         roundExists(roundId)
         returns (uint256 votesFor, uint256 votesAgainst, uint256 totalValidators)
     {
