@@ -25,11 +25,9 @@ contract TokenInvariantTest is Test {
     address public proposalManagerRole = address(0x1000);
     address public consensusInitiatorRole = address(0x2000);
 
-    // Handler contract for targeted invariant testing
     TokenHandler public handler;
 
     function setUp() public {
-        // Deploy contracts
         gltToken = new GLTToken(owner);
         llmOracle = new MockLLMOracle();
         validatorRegistry = new ValidatorRegistry(address(gltToken), owner);
@@ -38,16 +36,12 @@ contract TokenInvariantTest is Test {
             new ConsensusEngine(address(validatorRegistry), address(proposalManager), consensusInitiatorRole);
         disputeResolver = new DisputeResolver(address(gltToken), address(validatorRegistry), address(proposalManager));
 
-        // Set up roles
         validatorRegistry.setSlasher(address(disputeResolver));
 
-        // Deploy handler
         handler = new TokenHandler(gltToken, validatorRegistry, disputeResolver);
 
-        // Target handler for invariant testing
         targetContract(address(handler));
 
-        // Label contracts for better trace output
         vm.label(address(gltToken), "GLTToken");
         vm.label(address(validatorRegistry), "ValidatorRegistry");
         vm.label(address(disputeResolver), "DisputeResolver");
@@ -78,8 +72,6 @@ contract TokenInvariantTest is Test {
         uint256 disputeBalance = gltToken.balanceOf(address(disputeResolver));
         uint256 totalInDisputes = handler.getTotalInDisputes();
 
-        // With beacon proxy pattern, tokens are held in individual validator proxies
-        // So we check total staked through validator info instead
         uint256 actualTotalStaked = 0;
         address[] memory allValidators = handler.getValidators();
         for (uint256 i = 0; i < allValidators.length; i++) {
@@ -92,7 +84,6 @@ contract TokenInvariantTest is Test {
         uint256 totalStaked = handler.getTotalStaked();
         assertEq(actualTotalStaked, totalStaked);
 
-        // Dispute resolver balance should equal total in disputes
         assertEq(disputeBalance, totalInDisputes);
     }
 
@@ -117,17 +108,14 @@ contract TokenHandler is Test {
     ValidatorRegistry public immutable validatorRegistry;
     DisputeResolver public immutable disputeResolver;
 
-    // Track all addresses that have received tokens
     address[] public tokenHolders;
     mapping(address => bool) public isTokenHolder;
 
-    // Track metrics
     uint256 public totalMinted;
     uint256 public totalBurned;
     uint256 public totalStaked;
     uint256 public totalInDisputes;
 
-    // Test actors
     address[] public validators;
     uint256 public nextValidatorId = 1;
 
@@ -141,11 +129,8 @@ contract TokenHandler is Test {
      * @dev Mint tokens to a random address
      */
     function mintTokens(uint256 amount) public {
-        // Bound amount to prevent overflow
-        // Use modulo to avoid bound() logging
         amount = 1 + (amount % 100_000_000e18);
 
-        // Check if minting would exceed max supply
         if (gltToken.totalSupply() + amount > gltToken.MAX_SUPPLY()) {
             return;
         }
@@ -155,7 +140,6 @@ contract TokenHandler is Test {
         vm.prank(gltToken.owner());
         gltToken.mint(recipient, amount);
 
-        // Track holder
         if (!isTokenHolder[recipient]) {
             tokenHolders.push(recipient);
             isTokenHolder[recipient] = true;
@@ -168,24 +152,19 @@ contract TokenHandler is Test {
      * @dev Register a validator with stake
      */
     function registerValidator(uint256 stakeAmount) public {
-        // Bound stake amount
-        // Use modulo to avoid bound() logging
         stakeAmount = 1000e18 + (stakeAmount % (10_000e18 - 1000e18));
 
         address validator = address(uint160(nextValidatorId++));
 
-        // Mint tokens for validator
         vm.prank(gltToken.owner());
         gltToken.mint(validator, stakeAmount);
         totalMinted += stakeAmount;
 
-        // Track holder
         if (!isTokenHolder[validator]) {
             tokenHolders.push(validator);
             isTokenHolder[validator] = true;
         }
 
-        // Approve and register
         vm.prank(validator);
         gltToken.approve(address(validatorRegistry), stakeAmount);
 
@@ -213,11 +192,10 @@ contract TokenHandler is Test {
         uint256 balance = gltToken.balanceOf(from);
         if (balance == 0) return;
 
-        // Use modulo to avoid bound() logging
         if (balance > 0) {
             amount = amount % balance;
         } else {
-            return; // No balance to transfer
+            return;
         }
         if (amount == 0) return;
 
@@ -234,22 +212,18 @@ contract TokenHandler is Test {
         validatorIndex = validatorIndex % validators.length;
         address challenger = validators[validatorIndex];
 
-        // Use modulo to avoid bound() logging
         challengeStake = 100e18 + (challengeStake % (500e18 - 100e18));
 
         uint256 balance = gltToken.balanceOf(challenger);
         if (balance < challengeStake) {
-            // Mint more tokens if needed
             vm.prank(gltToken.owner());
             gltToken.mint(challenger, challengeStake);
             totalMinted += challengeStake;
         }
 
-        // Approve dispute resolver
         vm.prank(challenger);
         gltToken.approve(address(disputeResolver), challengeStake);
 
-        // For this invariant test, we'll track the amount that would go to disputes
         totalInDisputes += challengeStake;
     }
 
@@ -257,16 +231,13 @@ contract TokenHandler is Test {
      * @dev Get total balances of all tracked holders
      */
     function getTotalTrackedBalances() public view returns (uint256 total) {
-        // Add token holder balances (excluding validators who have staked)
         for (uint256 i = 0; i < tokenHolders.length; i++) {
             address holder = tokenHolders[i];
-            // Skip if this holder is a validator (their tokens are in proxy)
             if (validatorRegistry.getValidatorProxy(holder) == address(0)) {
                 total += gltToken.balanceOf(holder);
             }
         }
 
-        // Add beacon proxy balances
         for (uint256 i = 0; i < validators.length; i++) {
             address proxyAddress = validatorRegistry.getValidatorProxy(validators[i]);
             if (proxyAddress != address(0)) {
@@ -274,11 +245,9 @@ contract TokenHandler is Test {
             }
         }
 
-        // Add contract balances
         total += gltToken.balanceOf(address(validatorRegistry));
         total += gltToken.balanceOf(address(disputeResolver));
 
-        // Add owner balance if not already counted
         address owner = gltToken.owner();
         bool ownerIsValidator = false;
         for (uint256 i = 0; i < validators.length; i++) {
@@ -292,7 +261,6 @@ contract TokenHandler is Test {
         }
     }
 
-    // Getter functions for invariants
     function getValidators() public view returns (address[] memory) {
         return validators;
     }

@@ -23,7 +23,6 @@ contract FullFlowIntegrationTest is Test {
     using MessageHashUtils for bytes32;
     using ECDSA for bytes32;
 
-    // Contracts
     GLTToken public gltToken;
     ValidatorRegistry public validatorRegistry;
     ProposalManager public proposalManager;
@@ -31,12 +30,10 @@ contract FullFlowIntegrationTest is Test {
     ConsensusEngine public consensusEngine;
     DisputeResolver public disputeResolver;
 
-    // Roles
     address public deployer = address(this);
     address public proposalManagerRole = address(0x1000);
     address public consensusInitiatorRole = address(0x2000);
 
-    // Validators
     uint256 constant VALIDATOR1_PRIVATE_KEY = 0x1234;
     uint256 constant VALIDATOR2_PRIVATE_KEY = 0x5678;
     uint256 constant VALIDATOR3_PRIVATE_KEY = 0x9ABC;
@@ -49,7 +46,6 @@ contract FullFlowIntegrationTest is Test {
     address public validator4;
     address public validator5;
 
-    // Constants
     uint256 constant MINIMUM_STAKE = 1000e18;
     uint256 constant INITIAL_VALIDATOR_BALANCE = 10_000e18;
     uint256 constant CHALLENGE_WINDOW = 10;
@@ -57,14 +53,12 @@ contract FullFlowIntegrationTest is Test {
     uint256 constant DISPUTE_VOTING_PERIOD = 50;
 
     function setUp() public {
-        // Derive validator addresses
         validator1 = vm.addr(VALIDATOR1_PRIVATE_KEY);
         validator2 = vm.addr(VALIDATOR2_PRIVATE_KEY);
         validator3 = vm.addr(VALIDATOR3_PRIVATE_KEY);
         validator4 = vm.addr(VALIDATOR4_PRIVATE_KEY);
         validator5 = vm.addr(VALIDATOR5_PRIVATE_KEY);
 
-        // Deploy contracts
         gltToken = new GLTToken(deployer);
         llmOracle = new MockLLMOracle();
         validatorRegistry = new ValidatorRegistry(address(gltToken), deployer);
@@ -73,10 +67,8 @@ contract FullFlowIntegrationTest is Test {
             new ConsensusEngine(address(validatorRegistry), address(proposalManager), consensusInitiatorRole);
         disputeResolver = new DisputeResolver(address(gltToken), address(validatorRegistry), address(proposalManager));
 
-        // Set up roles
         validatorRegistry.setSlasher(address(disputeResolver));
 
-        // Fund validators
         setupValidator(validator1, 3000e18);
         setupValidator(validator2, 2500e18);
         setupValidator(validator3, 2000e18);
@@ -94,7 +86,6 @@ contract FullFlowIntegrationTest is Test {
         gltToken.approve(address(disputeResolver), type(uint256).max);
     }
 
-    // Helper functions
     function createVoteSignature(
         uint256 privateKey,
         uint256 roundId,
@@ -135,30 +126,23 @@ contract FullFlowIntegrationTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    // Test: Complete happy path - proposal approved through consensus
     function test_Integration_HappyPath_ProposalApproved() public {
-        // 1. Validator creates proposal
         bytes32 contentHash = keccak256("Valid proposal content");
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(contentHash, "Integration Test Proposal");
 
-        // 2. Proposal manager approves optimistically
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // 3. Wait for challenge window to pass
         vm.roll(block.number + CHALLENGE_WINDOW + 1);
 
-        // 4. No challenge, proposal can be finalized
         IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
         assertEq(uint8(proposal.state), uint8(IProposalManager.ProposalState.OptimisticApproved));
 
         // Note: In real implementation, would need to finalize proposal
     }
 
-    // Test: Proposal challenged and approved through consensus
     function test_Integration_ProposalChallenged_ConsensusApproves() public {
-        // 1. Create and optimistically approve proposal
         bytes32 contentHash = keccak256("Challenged but valid proposal");
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(contentHash, "Challenged Proposal");
@@ -166,15 +150,12 @@ contract FullFlowIntegrationTest is Test {
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // 2. Validator challenges proposal
         vm.prank(validator2);
         proposalManager.challengeProposal(proposalId);
 
-        // 3. Initiate consensus
         vm.prank(consensusInitiatorRole);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
-        // 4. Validators vote (3 out of 5 vote for approval)
         vm.prank(validator1);
         consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true));
 
@@ -187,20 +168,17 @@ contract FullFlowIntegrationTest is Test {
         vm.prank(validator2);
         consensusEngine.castVote(roundId, false, createVoteSignature(VALIDATOR2_PRIVATE_KEY, roundId, false));
 
-        // 5. Move past voting period and finalize
         vm.roll(block.number + VOTING_PERIOD + 1);
         bool approved = consensusEngine.finalizeConsensus(roundId);
         assertTrue(approved);
 
-        // 6. Note: In the current implementation, ConsensusEngine doesn't automatically update ProposalManager state
+        // Note: In the current implementation, ConsensusEngine doesn't automatically update ProposalManager state
         // The proposal remains in Challenged state after consensus
         IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
         assertEq(uint8(proposal.state), uint8(IProposalManager.ProposalState.Challenged));
     }
 
-    // Test: Proposal challenged and rejected through consensus
     function test_Integration_ProposalChallenged_ConsensusRejects() public {
-        // 1. Create and optimistically approve proposal with odd hash (invalid)
         bytes32 contentHash = keccak256("Invalid proposal content!");
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(contentHash, "Invalid Proposal");
@@ -208,15 +186,12 @@ contract FullFlowIntegrationTest is Test {
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // 2. Challenge proposal
         vm.prank(validator2);
         proposalManager.challengeProposal(proposalId);
 
-        // 3. Initiate consensus
         vm.prank(consensusInitiatorRole);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
-        // 4. Validators vote against (4 out of 5 vote against)
         vm.prank(validator2);
         consensusEngine.castVote(roundId, false, createVoteSignature(VALIDATOR2_PRIVATE_KEY, roundId, false));
 
@@ -229,19 +204,16 @@ contract FullFlowIntegrationTest is Test {
         vm.prank(validator5);
         consensusEngine.castVote(roundId, false, createVoteSignature(VALIDATOR5_PRIVATE_KEY, roundId, false));
 
-        // 5. Finalize consensus
         vm.roll(block.number + VOTING_PERIOD + 1);
         bool approved = consensusEngine.finalizeConsensus(roundId);
         assertFalse(approved);
 
-        // 6. Note: Proposal state remains Challenged after consensus
+        // Note: Proposal state remains Challenged after consensus
         IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
         assertEq(uint8(proposal.state), uint8(IProposalManager.ProposalState.Challenged));
     }
 
-    // Test: Dispute resolution - challenger wins
     function test_Integration_DisputeResolution_ChallengerWins() public {
-        // 1. Create and optimistically approve invalid proposal
         bytes32 contentHash = keccak256("Malicious proposal!");
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(contentHash, "Malicious Proposal");
@@ -249,14 +221,12 @@ contract FullFlowIntegrationTest is Test {
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // 2. Create dispute with stake
         uint256 challengeStake = 200e18;
         uint256 challengerBalanceBefore = gltToken.balanceOf(validator3);
 
         vm.prank(validator3);
         uint256 disputeId = disputeResolver.createDispute(proposalId, challengeStake);
 
-        // 3. Validators vote on dispute (majority support challenge)
         vm.prank(validator2);
         disputeResolver.voteOnDispute(
             disputeId, true, createDisputeVoteSignature(VALIDATOR2_PRIVATE_KEY, disputeId, true)
@@ -277,28 +247,22 @@ contract FullFlowIntegrationTest is Test {
             disputeId, false, createDisputeVoteSignature(VALIDATOR1_PRIVATE_KEY, disputeId, false)
         );
 
-        // 4. Resolve dispute
         vm.warp(block.timestamp + DISPUTE_VOTING_PERIOD + 1);
 
         IValidatorRegistry.ValidatorInfo memory proposerBefore = validatorRegistry.getValidatorInfo(validator1);
         disputeResolver.resolveDispute(disputeId);
         IValidatorRegistry.ValidatorInfo memory proposerAfter = validatorRegistry.getValidatorInfo(validator1);
 
-        // 5. Check results
         IDisputeResolver.Dispute memory dispute = disputeResolver.getDispute(disputeId);
         assertTrue(dispute.challengerWon);
 
-        // Check proposer was slashed
         uint256 slashAmount = (challengeStake * 10) / 100;
         assertEq(proposerAfter.stakedAmount, proposerBefore.stakedAmount - slashAmount);
 
-        // Check challenger got refund
         assertEq(gltToken.balanceOf(validator3), challengerBalanceBefore);
     }
 
-    // Test: Dispute resolution - proposer wins
     function test_Integration_DisputeResolution_ProposerWins() public {
-        // 1. Create and optimistically approve valid proposal
         bytes32 contentHash = keccak256("Actually valid proposal");
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(contentHash, "Valid Proposal");
@@ -306,13 +270,11 @@ contract FullFlowIntegrationTest is Test {
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // 2. Create dispute (malicious challenge)
         uint256 challengeStake = 150e18;
 
         vm.prank(validator3);
         uint256 disputeId = disputeResolver.createDispute(proposalId, challengeStake);
 
-        // 3. Validators vote against challenge
         vm.prank(validator1);
         disputeResolver.voteOnDispute(
             disputeId, false, createDisputeVoteSignature(VALIDATOR1_PRIVATE_KEY, disputeId, false)
@@ -328,26 +290,21 @@ contract FullFlowIntegrationTest is Test {
             disputeId, false, createDisputeVoteSignature(VALIDATOR4_PRIVATE_KEY, disputeId, false)
         );
 
-        // 4. Resolve dispute
         vm.warp(block.timestamp + DISPUTE_VOTING_PERIOD + 1);
 
         uint256 proposerBalanceBefore = gltToken.balanceOf(validator1);
         disputeResolver.resolveDispute(disputeId);
         uint256 proposerBalanceAfter = gltToken.balanceOf(validator1);
 
-        // 5. Check results
         IDisputeResolver.Dispute memory dispute = disputeResolver.getDispute(disputeId);
         assertFalse(dispute.challengerWon);
 
-        // Check proposer received reward
         uint256 slashAmount = (challengeStake * 10) / 100;
         uint256 rewardAmount = challengeStake - slashAmount;
         assertEq(proposerBalanceAfter, proposerBalanceBefore + rewardAmount);
     }
 
-    // Test: Multiple validators staking and unstaking
     function test_Integration_ValidatorLifecycle() public {
-        // 1. New validator joins
         address newValidator = address(0x9999);
         gltToken.mint(newValidator, 5000e18);
 
@@ -358,24 +315,20 @@ contract FullFlowIntegrationTest is Test {
 
         assertTrue(validatorRegistry.isActiveValidator(newValidator));
 
-        // 2. Validator increases stake
         vm.prank(newValidator);
         validatorRegistry.increaseStake(1000e18);
 
         IValidatorRegistry.ValidatorInfo memory info = validatorRegistry.getValidatorInfo(newValidator);
         assertEq(info.stakedAmount, 3000e18);
 
-        // 3. Validator requests unstake
         vm.prank(newValidator);
         validatorRegistry.requestUnstake(3000e18);
 
         info = validatorRegistry.getValidatorInfo(newValidator);
         assertEq(uint8(info.status), uint8(IValidatorRegistry.ValidatorStatus.Unstaking));
 
-        // 4. Wait bonding period (1 block per PRD)
         vm.roll(block.number + 1);
 
-        // 5. Complete unstake
         uint256 balanceBefore = gltToken.balanceOf(newValidator);
         vm.prank(newValidator);
         validatorRegistry.completeUnstake();
@@ -385,9 +338,7 @@ contract FullFlowIntegrationTest is Test {
         assertFalse(validatorRegistry.isActiveValidator(newValidator));
     }
 
-    // Test: LLM Oracle validation integration
     function test_Integration_LLMOracleValidation() public {
-        // 1. Test with even hash (should be valid)
         bytes32 evenHash = keccak256("Even content 1234");
         assertTrue(uint256(evenHash) % 2 == 0, "Hash should be even");
 
@@ -397,7 +348,6 @@ contract FullFlowIntegrationTest is Test {
         bool isValid1 = llmOracle.validateProposal(proposalId1, evenHash);
         assertTrue(isValid1);
 
-        // 2. Test with odd hash (should be invalid)
         bytes32 oddHash = keccak256("Odd content 123");
         assertTrue(uint256(oddHash) % 2 == 1, "Hash should be odd");
 
@@ -408,14 +358,11 @@ contract FullFlowIntegrationTest is Test {
         assertFalse(isValid2);
     }
 
-    // Test: Edge case - validator slashed below minimum stake
     function test_Integration_ValidatorSlashedBelowMinimum() public {
-        // 1. Validator5 has exactly minimum stake (1000 GLT)
         IValidatorRegistry.ValidatorInfo memory info = validatorRegistry.getValidatorInfo(validator5);
         assertEq(info.stakedAmount, MINIMUM_STAKE);
         assertTrue(validatorRegistry.isActiveValidator(validator5));
 
-        // 2. Create proposal and dispute that validator5 will lose
         vm.prank(validator5);
         uint256 proposalId = proposalManager.createProposal(keccak256("Bad proposal!"), "Bad");
 
@@ -425,7 +372,6 @@ contract FullFlowIntegrationTest is Test {
         vm.prank(validator3);
         uint256 disputeId = disputeResolver.createDispute(proposalId, 200e18);
 
-        // 3. Vote for challenger - need 3 votes out of 5 (>= 50%)
         vm.prank(validator1);
         disputeResolver.voteOnDispute(
             disputeId, true, createDisputeVoteSignature(VALIDATOR1_PRIVATE_KEY, disputeId, true)
@@ -441,20 +387,16 @@ contract FullFlowIntegrationTest is Test {
             disputeId, true, createDisputeVoteSignature(VALIDATOR4_PRIVATE_KEY, disputeId, true)
         );
 
-        // 4. Resolve dispute
         vm.warp(block.timestamp + DISPUTE_VOTING_PERIOD + 1);
         disputeResolver.resolveDispute(disputeId);
 
-        // 5. Check validator5 is slashed and no longer active
         info = validatorRegistry.getValidatorInfo(validator5);
         assertLt(info.stakedAmount, MINIMUM_STAKE);
         assertEq(uint8(info.status), uint8(IValidatorRegistry.ValidatorStatus.Slashed));
         assertFalse(validatorRegistry.isActiveValidator(validator5));
     }
 
-    // Test: Concurrent proposals and disputes
     function test_Integration_ConcurrentProposalsAndDisputes() public {
-        // 1. Multiple validators create proposals
         vm.prank(validator1);
         uint256 proposalId1 = proposalManager.createProposal(keccak256("Proposal 1"), "First");
 
@@ -464,64 +406,51 @@ contract FullFlowIntegrationTest is Test {
         vm.prank(validator3);
         uint256 proposalId3 = proposalManager.createProposal(keccak256("Proposal 3!"), "Third");
 
-        // 2. Approve them optimistically
         vm.startPrank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId1);
         proposalManager.approveOptimistically(proposalId2);
         proposalManager.approveOptimistically(proposalId3);
         vm.stopPrank();
 
-        // 3. Create disputes on different proposals
         vm.prank(validator4);
         disputeResolver.createDispute(proposalId1, 100e18);
 
         vm.prank(validator5);
         disputeResolver.createDispute(proposalId3, 150e18);
 
-        // 4. Challenge proposal 2 for consensus
         vm.prank(validator4);
         proposalManager.challengeProposal(proposalId2);
 
         vm.prank(consensusInitiatorRole);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId2);
 
-        // 5. Process each independently
         assertEq(disputeResolver.getTotalDisputes(), 2);
         assertEq(consensusEngine.getCurrentRound(proposalId2), roundId);
     }
 
-    // Test: Non-validator can create proposals
     function test_Integration_NonValidatorCanCreateProposal() public {
-        // 1. Create a non-validator address
         address nonValidator = address(0x9999);
 
-        // Give non-validator some GLT tokens (not needed for proposal creation)
         gltToken.mint(nonValidator, 100e18);
 
-        // 2. Non-validator creates proposal
         bytes32 contentHash = keccak256("Non-validator proposal");
         vm.prank(nonValidator);
         uint256 proposalId = proposalManager.createProposal(contentHash, "Non-Validator Test Proposal");
 
-        // 3. Verify proposal was created
         IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
         assertEq(proposal.proposer, nonValidator);
         assertEq(proposal.contentHash, contentHash);
         assertEq(uint8(proposal.state), uint8(IProposalManager.ProposalState.Proposed));
 
-        // 4. Proposal can be approved optimistically
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // 5. Validators can still challenge it
         vm.prank(validator1);
         proposalManager.challengeProposal(proposalId);
 
-        // 6. And it can go through consensus
         vm.prank(consensusInitiatorRole);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
-        // 7. Validators vote
         vm.prank(validator1);
         consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true));
 
@@ -531,10 +460,8 @@ contract FullFlowIntegrationTest is Test {
         vm.prank(validator3);
         consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR3_PRIVATE_KEY, roundId, true));
 
-        // 8. Wait for voting period
         vm.roll(block.number + VOTING_PERIOD + 1);
 
-        // 9. Finalize consensus
         bool approved = consensusEngine.finalizeConsensus(roundId);
         assertTrue(approved);
     }

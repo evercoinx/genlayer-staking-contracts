@@ -23,7 +23,6 @@ contract EdgeCaseIntegrationTest is Test {
     using MessageHashUtils for bytes32;
     using ECDSA for bytes32;
 
-    // Contracts
     GLTToken public gltToken;
     ValidatorRegistry public validatorRegistry;
     ProposalManager public proposalManager;
@@ -31,12 +30,10 @@ contract EdgeCaseIntegrationTest is Test {
     ConsensusEngine public consensusEngine;
     DisputeResolver public disputeResolver;
 
-    // Roles
     address public deployer = address(this);
     address public proposalManagerRole = address(0x1000);
     address public consensusInitiatorRole = address(0x2000);
 
-    // Validators
     uint256 constant VALIDATOR1_PRIVATE_KEY = 0x1234;
     uint256 constant VALIDATOR2_PRIVATE_KEY = 0x5678;
     uint256 constant VALIDATOR3_PRIVATE_KEY = 0x9ABC;
@@ -45,7 +42,6 @@ contract EdgeCaseIntegrationTest is Test {
     address public validator2;
     address public validator3;
 
-    // Constants
     uint256 constant MINIMUM_STAKE = 1000e18;
     uint256 constant MAX_VALIDATORS = 100;
     uint256 constant CHALLENGE_WINDOW = 10;
@@ -53,12 +49,10 @@ contract EdgeCaseIntegrationTest is Test {
     uint256 constant DISPUTE_VOTING_PERIOD = 50;
 
     function setUp() public {
-        // Derive validator addresses
         validator1 = vm.addr(VALIDATOR1_PRIVATE_KEY);
         validator2 = vm.addr(VALIDATOR2_PRIVATE_KEY);
         validator3 = vm.addr(VALIDATOR3_PRIVATE_KEY);
 
-        // Deploy contracts
         gltToken = new GLTToken(deployer);
         llmOracle = new MockLLMOracle();
         validatorRegistry = new ValidatorRegistry(address(gltToken), deployer);
@@ -67,10 +61,8 @@ contract EdgeCaseIntegrationTest is Test {
             new ConsensusEngine(address(validatorRegistry), address(proposalManager), consensusInitiatorRole);
         disputeResolver = new DisputeResolver(address(gltToken), address(validatorRegistry), address(proposalManager));
 
-        // Set up roles
         validatorRegistry.setSlasher(address(disputeResolver));
 
-        // Fund validators
         setupValidator(validator1, 2000e18);
         setupValidator(validator2, 1500e18);
         setupValidator(validator3, 1000e18);
@@ -86,7 +78,6 @@ contract EdgeCaseIntegrationTest is Test {
         gltToken.approve(address(disputeResolver), type(uint256).max);
     }
 
-    // Helper functions
     function createVoteSignature(
         uint256 privateKey,
         uint256 roundId,
@@ -127,29 +118,23 @@ contract EdgeCaseIntegrationTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    // Test: Challenge window expiry during active dispute
     function test_EdgeCase_ChallengeWindowExpiryDuringDispute() public {
-        // 1. Create and approve proposal
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
 
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // 2. Create dispute just before challenge window expires
         vm.roll(block.number + CHALLENGE_WINDOW - 1);
 
         vm.prank(validator2);
         uint256 disputeId = disputeResolver.createDispute(proposalId, 100e18);
 
-        // 3. Move past challenge window
         vm.roll(block.number + 2);
 
-        // 4. Verify dispute is still active despite challenge window expiry
         IDisputeResolver.Dispute memory dispute = disputeResolver.getDispute(disputeId);
         assertEq(uint8(dispute.state), uint8(IDisputeResolver.DisputeState.Active));
 
-        // 5. Complete dispute voting
         vm.prank(validator3);
         disputeResolver.voteOnDispute(
             disputeId, true, createDisputeVoteSignature(VALIDATOR3_PRIVATE_KEY, disputeId, true)
@@ -159,12 +144,9 @@ contract EdgeCaseIntegrationTest is Test {
         disputeResolver.resolveDispute(disputeId);
     }
 
-    // Test: Maximum validators reached
     function test_EdgeCase_MaximumValidatorsReached() public {
-        // Get current active validator limit
         uint256 activeValidatorLimit = validatorRegistry.getActiveValidatorLimit();
 
-        // Register validators up to activeValidatorLimit (we already have 3)
         for (uint256 i = 4; i <= activeValidatorLimit; i++) {
             address newValidator = address(uint160(i * 1000));
             gltToken.mint(newValidator, 2000e18);
@@ -178,24 +160,20 @@ contract EdgeCaseIntegrationTest is Test {
         address[] memory activeValidators = validatorRegistry.getActiveValidators();
         assertEq(activeValidators.length, activeValidatorLimit);
 
-        // Try to add one more with higher stake
         address extraValidator = address(0xEEEE);
         gltToken.mint(extraValidator, 5000e18);
 
         vm.startPrank(extraValidator);
         gltToken.approve(address(validatorRegistry), type(uint256).max);
-        validatorRegistry.registerValidator(3000e18); // Higher stake than some existing
+        validatorRegistry.registerValidator(3000e18);
         vm.stopPrank();
 
-        // Check that lowest staked validator was replaced
         activeValidators = validatorRegistry.getActiveValidators();
         assertEq(activeValidators.length, activeValidatorLimit);
         assertTrue(validatorRegistry.isActiveValidator(extraValidator));
     }
 
-    // Test: Consensus with minimum quorum exactly met
     function test_EdgeCase_MinimumQuorumExactlyMet() public {
-        // Create proposal and challenge it
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
 
@@ -205,47 +183,37 @@ contract EdgeCaseIntegrationTest is Test {
         vm.prank(validator2);
         proposalManager.challengeProposal(proposalId);
 
-        // Initiate consensus
         vm.prank(consensusInitiatorRole);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
-        // With 3 validators, 60% quorum means 2 votes needed (60% of 3 = 1.8, rounds up to 2)
-        // Cast exactly 2 votes (66.67%)
         vm.prank(validator1);
         consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true));
 
         vm.prank(validator2);
         consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR2_PRIVATE_KEY, roundId, true));
 
-        // Finalize
         vm.roll(block.number + VOTING_PERIOD + 1);
         bool approved = consensusEngine.finalizeConsensus(roundId);
         assertTrue(approved);
     }
 
-    // Test: Insufficient balance for challenge stake
     function test_EdgeCase_InsufficientBalanceForChallenge() public {
-        // Create proposal
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
 
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // Validator3 transfers most of their balance away
         uint256 balance = gltToken.balanceOf(validator3);
         vm.prank(validator3);
-        gltToken.transfer(address(0x9999), balance - 50e18); // Keep only 50 GLT
+        gltToken.transfer(address(0x9999), balance - 50e18);
 
-        // Try to create dispute with 100 GLT (minimum)
         vm.expectRevert();
         vm.prank(validator3);
         disputeResolver.createDispute(proposalId, 100e18);
     }
 
-    // Test: Validator unstaking during active consensus
     function test_EdgeCase_ValidatorUnstakingDuringConsensus() public {
-        // Create proposal and initiate consensus
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
 
@@ -258,43 +226,34 @@ contract EdgeCaseIntegrationTest is Test {
         vm.prank(consensusInitiatorRole);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
-        // Validator1 votes
         vm.prank(validator1);
         consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true));
 
-        // Validator2 requests unstaking
         vm.prank(validator2);
-        validatorRegistry.requestUnstake(1500e18); // Full unstake
+        validatorRegistry.requestUnstake(1500e18);
 
-        // Validator2 tries to vote after requesting unstake
         vm.expectRevert(IConsensusEngine.NotActiveValidator.selector);
         vm.prank(validator2);
         consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR2_PRIVATE_KEY, roundId, true));
 
-        // Finalize with reduced validator set
         vm.roll(block.number + VOTING_PERIOD + 1);
         bool approved = consensusEngine.finalizeConsensus(roundId);
-        assertFalse(approved); // Only 1/2 validators voted (50% < 60%)
+        assertFalse(approved);
     }
 
-    // Test: Multiple disputes on same proposal
     function test_EdgeCase_MultipleDisputesOnSameProposal() public {
-        // Create and approve proposal
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("controversial"), "Controversial");
 
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // Multiple validators create disputes
         vm.prank(validator2);
         uint256 disputeId1 = disputeResolver.createDispute(proposalId, 100e18);
 
         vm.prank(validator3);
         uint256 disputeId2 = disputeResolver.createDispute(proposalId, 150e18);
 
-        // Different outcomes for each dispute
-        // Dispute 1: Challenger wins - need 2 votes out of 3 (>= 50%)
         vm.prank(validator3);
         disputeResolver.voteOnDispute(
             disputeId1, true, createDisputeVoteSignature(VALIDATOR3_PRIVATE_KEY, disputeId1, true)
@@ -305,13 +264,11 @@ contract EdgeCaseIntegrationTest is Test {
             disputeId1, true, createDisputeVoteSignature(VALIDATOR1_PRIVATE_KEY, disputeId1, true)
         );
 
-        // Dispute 2: Proposer wins - only 1 vote for challenge (< 50%)
         vm.prank(validator1);
         disputeResolver.voteOnDispute(
             disputeId2, true, createDisputeVoteSignature(VALIDATOR1_PRIVATE_KEY, disputeId2, true)
         );
 
-        // Resolve both disputes
         vm.warp(block.timestamp + DISPUTE_VOTING_PERIOD + 1);
 
         disputeResolver.resolveDispute(disputeId1);
@@ -322,19 +279,15 @@ contract EdgeCaseIntegrationTest is Test {
         IDisputeResolver.Dispute memory dispute2 = disputeResolver.getDispute(disputeId2);
         assertFalse(dispute2.challengerWon);
 
-        // Check disputes array
         uint256[] memory disputes = disputeResolver.getDisputesByProposal(proposalId);
         assertEq(disputes.length, 2);
     }
 
-    // Test: Tie vote in consensus
     function test_EdgeCase_TieVoteInConsensus() public {
-        // Setup 4th validator with proper private key
         uint256 validator4PrivateKey = 0x4444;
         address validator4 = vm.addr(validator4PrivateKey);
         setupValidator(validator4, 1500e18);
 
-        // Create proposal and challenge
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("tie test"), "Tie Test");
 
@@ -344,11 +297,9 @@ contract EdgeCaseIntegrationTest is Test {
         vm.prank(validator2);
         proposalManager.challengeProposal(proposalId);
 
-        // Initiate consensus
         vm.prank(consensusInitiatorRole);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
-        // Create tie: 2 for, 2 against
         vm.prank(validator1);
         consensusEngine.castVote(roundId, true, createVoteSignature(VALIDATOR1_PRIVATE_KEY, roundId, true));
 
@@ -361,15 +312,12 @@ contract EdgeCaseIntegrationTest is Test {
         vm.prank(validator4);
         consensusEngine.castVote(roundId, false, createVoteSignature(validator4PrivateKey, roundId, false));
 
-        // Finalize - tie should result in rejection (not meeting quorum)
         vm.roll(block.number + VOTING_PERIOD + 1);
         bool approved = consensusEngine.finalizeConsensus(roundId);
         assertFalse(approved);
     }
 
-    // Test: Zero participation in consensus
     function test_EdgeCase_ZeroParticipationInConsensus() public {
-        // Create proposal and challenge
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("ignored"), "Ignored");
 
@@ -379,24 +327,18 @@ contract EdgeCaseIntegrationTest is Test {
         vm.prank(validator2);
         proposalManager.challengeProposal(proposalId);
 
-        // Initiate consensus
         vm.prank(consensusInitiatorRole);
         uint256 roundId = consensusEngine.initiateConsensus(proposalId);
 
-        // No one votes
-
-        // Finalize with zero participation
         vm.roll(block.number + VOTING_PERIOD + 1);
         bool approved = consensusEngine.finalizeConsensus(roundId);
-        assertFalse(approved); // 0% < 60% quorum
+        assertFalse(approved);
 
         IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
         assertEq(uint8(proposal.state), uint8(IProposalManager.ProposalState.Challenged));
     }
 
-    // Test: Validator slashed multiple times
     function test_EdgeCase_ValidatorSlashedMultipleTimes() public {
-        // Validator1 creates multiple bad proposals
         uint256[] memory proposalIds = new uint256[](3);
         uint256[] memory disputeIds = new uint256[](3);
 
@@ -413,10 +355,8 @@ contract EdgeCaseIntegrationTest is Test {
             disputeIds[i] = disputeResolver.createDispute(proposalIds[i], 100e18);
         }
 
-        // Resolve all disputes against validator1
         IValidatorRegistry.ValidatorInfo memory infoBefore = validatorRegistry.getValidatorInfo(validator1);
 
-        // Vote on all disputes first - need 2 votes out of 3 for challenger to win
         for (uint256 i = 0; i < 3; i++) {
             vm.prank(validator3);
             disputeResolver.voteOnDispute(
@@ -429,7 +369,6 @@ contract EdgeCaseIntegrationTest is Test {
             );
         }
 
-        // Then warp time and resolve all
         vm.warp(block.timestamp + DISPUTE_VOTING_PERIOD + 1);
 
         for (uint256 i = 0; i < 3; i++) {
@@ -438,9 +377,8 @@ contract EdgeCaseIntegrationTest is Test {
 
         IValidatorRegistry.ValidatorInfo memory infoAfter = validatorRegistry.getValidatorInfo(validator1);
 
-        // Check cumulative slashing effect
         uint256 totalSlashed = infoBefore.stakedAmount - infoAfter.stakedAmount;
-        assertEq(totalSlashed, 30e18); // 3 * 10 GLT (10% of 100 GLT stake each)
+        assertEq(totalSlashed, 30e18);
 
         if (infoAfter.stakedAmount < MINIMUM_STAKE) {
             assertEq(uint8(infoAfter.status), uint8(IValidatorRegistry.ValidatorStatus.Slashed));

@@ -24,7 +24,6 @@ contract SystemInvariantTest is Test {
     using MessageHashUtils for bytes32;
     using ECDSA for bytes32;
 
-    // Contracts
     GLTToken public gltToken;
     ValidatorRegistry public validatorRegistry;
     ProposalManager public proposalManager;
@@ -32,16 +31,13 @@ contract SystemInvariantTest is Test {
     ConsensusEngine public consensusEngine;
     DisputeResolver public disputeResolver;
 
-    // Roles
     address public owner = address(this);
     address public proposalManagerRole = address(0x1000);
     address public consensusInitiatorRole = address(0x2000);
 
-    // Handler
     SystemHandler public handler;
 
     function setUp() public {
-        // Deploy contracts
         gltToken = new GLTToken(owner);
         llmOracle = new MockLLMOracle();
         validatorRegistry = new ValidatorRegistry(address(gltToken), owner);
@@ -50,27 +46,22 @@ contract SystemInvariantTest is Test {
             new ConsensusEngine(address(validatorRegistry), address(proposalManager), consensusInitiatorRole);
         disputeResolver = new DisputeResolver(address(gltToken), address(validatorRegistry), address(proposalManager));
 
-        // Set up roles
         validatorRegistry.setSlasher(address(disputeResolver));
 
-        // Deploy handler
         handler = new SystemHandler(gltToken, validatorRegistry, proposalManager, consensusEngine, disputeResolver);
 
-        // Grant roles to handler for testing
         vm.prank(proposalManager.owner());
         proposalManager = new ProposalManager(
             address(validatorRegistry),
             address(llmOracle),
-            address(handler) // Handler can approve proposals
+            address(handler)
         );
 
         vm.prank(consensusEngine.owner());
         consensusEngine.setConsensusInitiator(address(handler));
 
-        // Target handler
         targetContract(address(handler));
 
-        // Exclude certain functions that would break invariants
         excludeSender(address(0));
     }
 
@@ -79,7 +70,7 @@ contract SystemInvariantTest is Test {
      */
     function invariant_ActiveValidatorsBelowMax() public view {
         uint256 activeCount = validatorRegistry.getActiveValidators().length;
-        assertLe(activeCount, 100); // MAX_VALIDATORS
+        assertLe(activeCount, 100);
     }
 
     /**
@@ -90,7 +81,7 @@ contract SystemInvariantTest is Test {
 
         for (uint256 i = 0; i < activeValidators.length; i++) {
             IValidatorRegistry.ValidatorInfo memory info = validatorRegistry.getValidatorInfo(activeValidators[i]);
-            assertGe(info.stakedAmount, 1000e18); // MINIMUM_STAKE
+            assertGe(info.stakedAmount, 1000e18);
         }
     }
 
@@ -99,18 +90,14 @@ contract SystemInvariantTest is Test {
      */
     function invariant_ProposalStatesValid() public view {
         uint256 totalProposals = proposalManager.getTotalProposals();
-        // Limit checks to last 10 proposals for performance
         uint256 startIndex = totalProposals > 10 ? totalProposals - 9 : 1;
 
         for (uint256 i = startIndex; i <= totalProposals; i++) {
             IProposalManager.Proposal memory proposal = proposalManager.getProposal(i);
 
-            // Check state is within valid range
             assertTrue(uint8(proposal.state) <= uint8(IProposalManager.ProposalState.Rejected));
 
-            // Check state transitions make sense
             if (proposal.state == IProposalManager.ProposalState.Challenged) {
-                // Should have been optimistically approved first
                 assertTrue(proposal.challengeWindowEnd > 0);
             }
         }
@@ -126,7 +113,6 @@ contract SystemInvariantTest is Test {
             (uint256 votesFor, uint256 votesAgainst, uint256 totalValidators) =
                 consensusEngine.getVoteCounts(roundIds[i]);
 
-            // Vote count should not exceed total validators
             assertLe(votesFor + votesAgainst, totalValidators);
         }
     }
@@ -136,18 +122,14 @@ contract SystemInvariantTest is Test {
      */
     function invariant_DisputeStatesConsistent() public view {
         uint256 totalDisputes = disputeResolver.getTotalDisputes();
-        // Limit checks to last 10 disputes for performance
         uint256 startIndex = totalDisputes > 10 ? totalDisputes - 9 : 1;
 
         for (uint256 i = startIndex; i <= totalDisputes; i++) {
             IDisputeResolver.Dispute memory dispute = disputeResolver.getDispute(i);
 
-            // Resolved disputes should have a winner
             if (dispute.state == IDisputeResolver.DisputeState.Resolved) {
-                // Either challenger won or didn't
                 assertTrue(dispute.challengerWon || !dispute.challengerWon);
 
-                // Should have some votes
                 assertTrue(dispute.votesFor > 0 || dispute.votesAgainst > 0);
             }
         }
@@ -162,7 +144,6 @@ contract SystemInvariantTest is Test {
         for (uint256 i = 0; i < slashedValidators.length; i++) {
             IValidatorRegistry.ValidatorInfo memory info = validatorRegistry.getValidatorInfo(slashedValidators[i]);
 
-            // Slashed validators should have status Slashed if stake < minimum
             if (info.stakedAmount < 1000e18) {
                 assertEq(uint8(info.status), uint8(IValidatorRegistry.ValidatorStatus.Slashed));
             }
@@ -178,21 +159,18 @@ contract SystemHandler is Test {
     using MessageHashUtils for bytes32;
     using ECDSA for bytes32;
 
-    // Contracts
     GLTToken public immutable gltToken;
     ValidatorRegistry public immutable validatorRegistry;
     ProposalManager public immutable proposalManager;
     ConsensusEngine public immutable consensusEngine;
     DisputeResolver public immutable disputeResolver;
 
-    // State tracking
     address[] public validators;
     uint256[] public proposals;
     uint256[] public consensusRounds;
     uint256[] public disputes;
     address[] public slashedValidators;
 
-    // Private keys for validators
     mapping(address => uint256) public validatorPrivateKeys;
     uint256 public nextValidatorKey = 0x1000;
 
@@ -214,20 +192,17 @@ contract SystemHandler is Test {
      * @dev Register a new validator
      */
     function registerValidator(uint256 stake) public {
-        // Use modulo to avoid bound() logging
         stake = 1000e18 + (stake % (50_000e18 - 1000e18));
 
         uint256 privateKey = nextValidatorKey++;
         address validator = vm.addr(privateKey);
 
-        // Mint tokens
         vm.prank(gltToken.owner());
         try gltToken.mint(validator, stake) { }
         catch {
             return;
         }
 
-        // Approve and register
         vm.prank(validator);
         gltToken.approve(address(validatorRegistry), stake);
 
@@ -322,13 +297,11 @@ contract SystemHandler is Test {
 
         proposalIndex = proposalIndex % proposals.length;
         validatorIndex = validatorIndex % validators.length;
-        // Use modulo to avoid bound() logging
         challengeStake = 100e18 + (challengeStake % (500e18 - 100e18));
 
         uint256 proposalId = proposals[proposalIndex];
         address challenger = validators[validatorIndex];
 
-        // Ensure challenger has enough tokens
         uint256 balance = gltToken.balanceOf(challenger);
         if (balance < challengeStake) {
             vm.prank(gltToken.owner());
@@ -356,14 +329,11 @@ contract SystemHandler is Test {
         disputeIndex = disputeIndex % disputes.length;
         uint256 disputeId = disputes[disputeIndex];
 
-        // Get dispute info
         IDisputeResolver.Dispute memory dispute = disputeResolver.getDispute(disputeId);
 
-        // Warp time to allow resolution
         vm.warp(dispute.votingEndTime + 1);
 
         try disputeResolver.resolveDispute(disputeId) {
-            // Track if proposer was slashed
             if (dispute.challengerWon) {
                 slashedValidators.push(dispute.proposer);
             }
@@ -393,7 +363,6 @@ contract SystemHandler is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    // Getters for invariant checks
     function getConsensusRounds() public view returns (uint256[] memory) {
         return consensusRounds;
     }

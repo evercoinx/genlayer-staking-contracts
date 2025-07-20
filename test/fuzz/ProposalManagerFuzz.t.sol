@@ -33,7 +33,6 @@ contract ProposalManagerFuzzTest is Test {
         llmOracle = new MockLLMOracle();
         proposalManager = new ProposalManager(address(validatorRegistry), address(llmOracle), proposalManagerRole);
 
-        // Setup validators
         _setupValidator(validator1, 2000e18);
         _setupValidator(validator2, 1500e18);
     }
@@ -46,9 +45,7 @@ contract ProposalManagerFuzzTest is Test {
         validatorRegistry.registerValidator(stake);
     }
 
-    // Fuzz test: Create proposals with various content hashes and metadata
     function testFuzz_CreateProposal(bytes32 contentHash, string memory metadata) public {
-        // Constraints
         vm.assume(contentHash != bytes32(0));
         vm.assume(bytes(metadata).length > 0 && bytes(metadata).length < 10_000);
 
@@ -62,7 +59,6 @@ contract ProposalManagerFuzzTest is Test {
         assertEq(uint8(proposal.state), uint8(IProposalManager.ProposalState.Proposed));
     }
 
-    // Fuzz test: Multiple proposals from same validator
     function testFuzz_MultipleProposals(bytes32[] memory contentHashes) public {
         vm.assume(contentHashes.length > 0 && contentHashes.length <= 50);
 
@@ -78,30 +74,24 @@ contract ProposalManagerFuzzTest is Test {
             validProposals++;
         }
 
-        // Check all proposals were created
         assertEq(proposalManager.getTotalProposals(), validProposals);
 
-        // Check proposals by proposer
         uint256[] memory proposerProposals = proposalManager.getProposalsByProposer(validator1);
         assertEq(proposerProposals.length, validProposals);
     }
 
-    // Fuzz test: Challenge window timing
     function testFuzz_ChallengeWindowTiming(uint256 blockAdvance) public {
-        blockAdvance = bound(blockAdvance, 0, 999); // Reasonable block advancement
+        blockAdvance = bound(blockAdvance, 0, 999);
 
-        // Create and approve proposal
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("test"), "Test");
 
         vm.prank(proposalManagerRole);
         proposalManager.approveOptimistically(proposalId);
 
-        // Advance blocks
         vm.roll(block.number + blockAdvance);
 
         if (blockAdvance <= CHALLENGE_WINDOW) {
-            // Should be able to challenge
             assertTrue(proposalManager.canChallenge(proposalId));
             vm.prank(validator2);
             proposalManager.challengeProposal(proposalId);
@@ -109,7 +99,6 @@ contract ProposalManagerFuzzTest is Test {
             IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
             assertEq(uint8(proposal.state), uint8(IProposalManager.ProposalState.Challenged));
         } else {
-            // Challenge window expired
             assertFalse(proposalManager.canChallenge(proposalId));
             vm.expectRevert(IProposalManager.ChallengeWindowExpired.selector);
             vm.prank(validator2);
@@ -117,18 +106,13 @@ contract ProposalManagerFuzzTest is Test {
         }
     }
 
-    // Note: Removed testFuzz_LLMValidation due to validator registration conflicts with beacon proxy pattern.
-    // LLM validation functionality is thoroughly tested in unit tests.
 
-    // Fuzz test: State transitions with random operations
     function testFuzz_StateTransitions(uint8[] memory operations) public {
-        // Use bound instead of assume to avoid rejecting inputs
         if (operations.length == 0) {
             operations = new uint8[](1);
             operations[0] = 0;
         }
         if (operations.length > 30) {
-            // Truncate to 30 operations
             uint8[] memory truncated = new uint8[](30);
             for (uint256 i = 0; i < 30; i++) {
                 truncated[i] = operations[i];
@@ -136,7 +120,6 @@ contract ProposalManagerFuzzTest is Test {
             operations = truncated;
         }
 
-        // Create initial proposal
         vm.prank(validator1);
         uint256 proposalId = proposalManager.createProposal(keccak256("state test"), "State Test");
 
@@ -145,13 +128,11 @@ contract ProposalManagerFuzzTest is Test {
             IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
 
             if (op == 0) {
-                // Try to approve optimistically
                 if (proposal.state == IProposalManager.ProposalState.Proposed) {
                     vm.prank(proposalManagerRole);
                     proposalManager.approveOptimistically(proposalId);
                 }
             } else if (op == 1) {
-                // Try to challenge
                 if (
                     proposal.state == IProposalManager.ProposalState.OptimisticApproved
                         && proposalManager.canChallenge(proposalId)
@@ -160,12 +141,10 @@ contract ProposalManagerFuzzTest is Test {
                     proposalManager.challengeProposal(proposalId);
                 }
             } else if (op == 2) {
-                // Try to finalize
                 if (proposalManager.canFinalize(proposalId)) {
                     proposalManager.finalizeProposal(proposalId);
                 }
             } else if (op == 3) {
-                // Try to reject
                 if (
                     proposal.state != IProposalManager.ProposalState.Finalized
                         && proposal.state != IProposalManager.ProposalState.Rejected
@@ -174,12 +153,10 @@ contract ProposalManagerFuzzTest is Test {
                     proposalManager.rejectProposal(proposalId, "Fuzz rejection");
                 }
             } else if (op == 4) {
-                // Advance some blocks
                 vm.roll(block.number + (operations[i] % 20));
             }
         }
 
-        // Verify final state is valid
         IProposalManager.Proposal memory finalProposal = proposalManager.getProposal(proposalId);
         assertTrue(
             finalProposal.state == IProposalManager.ProposalState.Proposed
@@ -190,14 +167,11 @@ contract ProposalManagerFuzzTest is Test {
         );
     }
 
-    // Fuzz test: Metadata size limits
     function testFuzz_MetadataSize(uint256 size, uint256 seed) public {
-        size = bound(size, 1, 100_000); // Up to 100KB
+        size = bound(size, 1, 100_000);
 
-        // Generate pseudo-random metadata of specified size
         bytes memory metadataBytes = new bytes(size);
         for (uint256 i = 0; i < size; i++) {
-            // Use unchecked to prevent overflow in the loop
             unchecked {
                 metadataBytes[i] = bytes1(uint8((seed + i) % 256));
             }
@@ -211,6 +185,4 @@ contract ProposalManagerFuzzTest is Test {
         assertEq(bytes(proposal.metadata).length, size);
     }
 
-    // Note: Removed testFuzz_ConcurrentChallenges due to validator registration conflicts with beacon proxy pattern.
-    // Concurrent challenge functionality is thoroughly tested in unit tests.
 }
