@@ -4,7 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-GenLayer Staking Contracts - A decentralized staking and governance system with optimistic consensus, validator management, and dispute resolution using GLT tokens.
+GenLayer Staking Contracts - A comprehensive decentralized staking and governance system with optimistic consensus, validator management, and dispute resolution using GLT tokens.
+
+### System Summary
+- **7 Core Contracts**: Complete ecosystem for staking and governance
+- **241 Test Functions**: Comprehensive coverage across 16 test files  
+- **Permissionless Design**: Economic barriers instead of permission-based access control
+- **Optimistic Consensus**: 10-block challenge window with automatic finalization
+- **Economic Security**: 10% slashing penalties and stake-based dispute resolution
 
 ## Essential Commands
 
@@ -116,8 +123,11 @@ All validator actions require ECDSA signatures with specific message formats:
 - Consensus votes: `"GenLayerConsensusVote" + roundId + validator + support + contractAddress + chainId`
 - Dispute votes: `"GenLayerDisputeVote" + disputeId + validator + supportChallenge + contractAddress + chainId`
 
-**Role-Based Access:**
-- ValidatorRegistry: `slasher` role (assigned to DisputeResolver)
+**Access Control Patterns:**
+- **Permissionless Registration**: Anyone can become a validator with 1000+ GLT tokens
+- **Economic Barriers**: Stake requirements instead of role-based permissions
+- **Role-Based Administration**: Owner, slasher, and validator roles for system management
+- ValidatorRegistry: `slasher` role (assigned to DisputeResolver), `onlyOwner` for admin functions
 - ProposalManager: `proposalManager` role (for approvals/rejections)
 - ConsensusEngine: `consensusInitiator` role (for starting rounds)
 

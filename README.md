@@ -1,10 +1,19 @@
 # GenLayer Staking Contracts
 
-A comprehensive implementation of a decentralized staking and governance system inspired by GenLayer's optimistic consensus mechanism, featuring validator management, proposal governance, LLM-based validation simulation, and dispute resolution.
+[![CI](https://github.com/evercoinx/genlayer-staking-contracts/actions/workflows/ci.yml/badge.svg)](https://github.com/evercoinx/genlayer-staking-contracts/actions/workflows/ci.yml)
+
+A comprehensive implementation of a decentralized staking and governance system inspired by GenLayer's optimistic consensus mechanism, featuring validator management, proposal governance, LLM-based validation simulation, and dispute resolution using GLT tokens.
 
 ## Overview
 
 This project implements a sophisticated consensus system where validators stake GLT tokens to participate in decentralized governance. The system employs an optimistic consensus approach with challenge windows, incorporates a mock LLM oracle for validation, and uses a beacon proxy pattern for upgradeable validator contracts.
+
+### Key Statistics
+- **7 Core Contracts**: Complete staking and governance ecosystem
+- **241 Test Functions**: Comprehensive test coverage across 16 test files
+- **Permissionless Staking**: Anyone can become a validator with 1000+ GLT tokens
+- **Economic Security**: 10% slashing penalty for malicious behavior
+- **Optimistic Consensus**: 10-block challenge window with 60% quorum voting
 
 ## Architecture
 
@@ -135,13 +144,14 @@ The GenLayer Staking Contracts consist of 7 interconnected smart contracts that 
 
 ### Key Features
 
-- **Validator Staking**: Minimum 1000 GLT tokens required
-- **Optimistic Consensus**: 10-block challenge window for proposals
-- **Dispute Resolution**: 10% slash penalty for false challenges
-- **Mock LLM Validation**: Even hashes = valid, odd hashes = invalid
-- **Signature Validation**: ECDSA signatures for all validator actions
-- **Top-N Selection**: Configurable active validator set (default 5, max 100)
-- **Beacon Proxy Pattern**: Upgradeable validator contracts
+- **Permissionless Staking**: Anyone can become a validator with 1000+ GLT tokens
+- **Optimistic Consensus**: 10-block challenge window for proposals with automatic finalization
+- **Economic Security**: 10% slashing penalty for malicious behavior and false challenges
+- **Mock LLM Validation**: Deterministic simulation (even hashes = valid, odd = invalid)
+- **Cryptographic Security**: ECDSA signatures for all validator actions and votes
+- **Top-N Validator Selection**: Configurable active set (default 5, max 100) sorted by stake
+- **Upgradeable Architecture**: Beacon proxy pattern for validator contract upgrades
+- **Comprehensive Access Control**: Role-based permissions with owner, slasher, and validator roles
 
 ## Process Walkthroughs
 
