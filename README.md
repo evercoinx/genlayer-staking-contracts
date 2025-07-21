@@ -240,8 +240,8 @@ forge test
 # Run tests with gas reporting
 forge test --gas-report
 
-# Run tests with coverage
-forge coverage
+# Run tests with coverage (core contracts only)
+make coverage
 
 # Run specific test contract
 forge test --match-contract GLTTokenTest -vvv
@@ -386,6 +386,7 @@ disputeResolver.voteOnDispute(disputeId, supportChallenge, signature);
 The project maintains high test coverage with:
 
 - **241 test functions** across **16 test files**
+- **92.91% line coverage** for core contracts (498/536 lines)
 - Unit tests for individual contract functions
 - Integration tests for contract interactions
 - Fuzz tests for edge cases and random inputs
@@ -393,6 +394,14 @@ The project maintains high test coverage with:
 - Signature verification tests
 - Access control tests
 - State transition tests
+
+Core contract coverage:
+- ConsensusEngine.sol: 97.56% line coverage
+- DisputeResolver.sol: 91.23% line coverage
+- ProposalManager.sol: 96.46% line coverage
+- Validator.sol: 89.87% line coverage
+- ValidatorBeacon.sol: 100% line coverage
+- ValidatorRegistry.sol: 90.21% line coverage
 
 ## License
 

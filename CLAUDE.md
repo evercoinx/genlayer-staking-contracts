@@ -8,7 +8,8 @@ GenLayer Staking Contracts - A comprehensive decentralized staking and governanc
 
 ### System Summary
 - **7 Core Contracts**: Complete ecosystem for staking and governance
-- **241 Test Functions**: Comprehensive coverage across 16 test files  
+- **241 Test Functions**: Comprehensive coverage across 16 test files
+- **92.91% Line Coverage**: Core contracts thoroughly tested
 - **Permissionless Design**: Economic barriers instead of permission-based access control
 - **Optimistic Consensus**: 10-block challenge window with automatic finalization
 - **Economic Security**: 10% slashing penalties and stake-based dispute resolution
@@ -33,8 +34,8 @@ forge test --match-test test_FunctionName -vvv
 # Run tests with gas reporting
 forge test --gas-report
 
-# Run tests with coverage
-forge coverage
+# Run tests with coverage (core contracts only)
+make coverage
 
 # Format code
 forge fmt
@@ -163,6 +164,13 @@ The codebase includes 241 test functions across 16 test files covering:
 - Invariant tests for system properties
 
 Test files follow the pattern: `test/unit/<ContractName>.t.sol`
+
+### Coverage Profile
+A dedicated coverage profile is configured in `foundry.toml` for faster coverage runs:
+- Optimized for IR compilation to avoid stack-too-deep errors
+- Reduced fuzz runs (100 instead of 1000)
+- Reduced invariant runs (5 instead of 10)
+- Coverage focuses on core contracts only (excluding GLTToken, MockLLMOracle, scripts, and tests)
 
 ## Known Design Decisions
 

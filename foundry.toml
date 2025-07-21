@@ -52,6 +52,15 @@ base = "https://base.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
 base_sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api-sepolia.basescan.org/api" }
 base = { key = "${ETHERSCAN_API_KEY}", url = "https://api.basescan.org/api" }
 
+[profile.coverage]
+optimizer = true
+optimizer-runs = 1
+via_ir = true
+fuzz = { runs = 100, seed = "0x0000000000000000000000000000000000000000000000000000000000000000" }
+invariant = { runs = 5, depth = 10 }
+extra_output = []
+gas_reports = []
+sparse_mode = false
 
 [profile.ci]
 extra_output = [

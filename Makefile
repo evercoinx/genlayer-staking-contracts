@@ -3,7 +3,7 @@ ifneq (,$(wildcard .env))
     export
 endif
 
-.PHONY: fmt compile test gas deploy-genlayer deploy-all deploy-localhost deploy-base-sepolia deploy-base
+.PHONY: fmt compile test gas coverage deploy-genlayer deploy-all deploy-localhost deploy-base-sepolia deploy-base
 
 DEPLOY_PARAMS :=
 ifeq ($(LOCAL_DEPLOY),1)
@@ -18,6 +18,7 @@ all:
 	@echo "  compile                      - Compile contracts"
 	@echo "  test                         - Run tests"
 	@echo "  gas                          - Generate gas report"
+	@echo "  coverage                     - Run test coverage with summary report"
 	@echo "  deploy-localhost             - Deploy GenLayer contracts to localhost"
 	@echo "  deploy-base-sepolia          - Deploy GenLayer contracts to base sepolia"
 	@echo "  deploy-base                  - Deploy GenLayer contracts to base"
@@ -33,6 +34,11 @@ test:
 
 gas:
 	@forge snapshot --gas-report
+
+coverage:
+	@echo "Running test coverage with summary report for core contracts..."
+	@FOUNDRY_PROFILE=coverage forge coverage --ir-minimum --report summary \
+		--no-match-coverage "(GLTToken|MockLLMOracle|script|test)"
 
 deploy-localhost: cleanup-localhost
 	@echo "Deploying to localhost network"
