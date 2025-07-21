@@ -20,10 +20,10 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
 
     address public proposalManager;
     uint256 public totalProposals;
-    mapping(uint256 proposalId => Proposal) private proposals;
-    mapping(address proposer => uint256[] proposalIds) private proposerToProposals;
-    mapping(ProposalState state => uint256[] proposalIds) private proposalsByState;
-    mapping(uint256 proposalId => mapping(address validator => bool approved)) private hasValidatorApproved;
+    mapping(uint256 proposalId => Proposal) private _proposals;
+    mapping(address proposer => uint256[] proposalIds) private _proposerToProposals;
+    mapping(ProposalState state => uint256[] proposalIds) private _proposalsByState;
+    mapping(uint256 proposalId => mapping(address validator => bool approved)) private _hasValidatorApproved;
 
     /**
      * @dev Modifier to restrict functions to active validators.
@@ -85,7 +85,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
 
         proposalId = ++totalProposals;
 
-        Proposal storage newProposal = proposals[proposalId];
+        Proposal storage newProposal = _proposals[proposalId];
         newProposal.id = proposalId;
         newProposal.proposer = msg.sender;
         newProposal.contentHash = contentHash;
@@ -96,8 +96,8 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
         newProposal.validatorApprovals = 0;
         newProposal.llmValidated = false;
 
-        proposerToProposals[msg.sender].push(proposalId);
-        proposalsByState[ProposalState.Proposed].push(proposalId);
+        _proposerToProposals[msg.sender].push(proposalId);
+        _proposalsByState[ProposalState.Proposed].push(proposalId);
 
         emit ProposalCreated(proposalId, msg.sender, contentHash);
 
@@ -108,7 +108,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @inheritdoc IProposalManager
      */
     function approveOptimistically(uint256 proposalId) external override onlyProposalManager {
-        Proposal storage proposal = proposals[proposalId];
+        Proposal storage proposal = _proposals[proposalId];
         require(proposal.id != 0, ProposalNotFound());
         require(proposal.state == ProposalState.Proposed, InvalidStateTransition());
 
@@ -124,7 +124,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @inheritdoc IProposalManager
      */
     function challengeProposal(uint256 proposalId) external override onlyActiveValidator {
-        Proposal storage proposal = proposals[proposalId];
+        Proposal storage proposal = _proposals[proposalId];
         require(proposal.id != 0, ProposalNotFound());
         require(proposal.state == ProposalState.OptimisticApproved, ProposalNotChallengeable());
         require(block.number <= proposal.challengeWindowEnd, ChallengeWindowExpired());
@@ -139,7 +139,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @inheritdoc IProposalManager
      */
     function finalizeProposal(uint256 proposalId) external override {
-        Proposal storage proposal = proposals[proposalId];
+        Proposal storage proposal = _proposals[proposalId];
         require(proposal.id != 0, ProposalNotFound());
         require(proposal.state == ProposalState.OptimisticApproved, InvalidStateTransition());
         require(block.number > proposal.challengeWindowEnd, ChallengeWindowActive());
@@ -154,7 +154,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @inheritdoc IProposalManager
      */
     function rejectProposal(uint256 proposalId, string calldata reason) external override onlyProposalManager {
-        Proposal storage proposal = proposals[proposalId];
+        Proposal storage proposal = _proposals[proposalId];
         require(proposal.id != 0, ProposalNotFound());
         require(
             proposal.state != ProposalState.Finalized && proposal.state != ProposalState.Rejected,
@@ -172,7 +172,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @inheritdoc IProposalManager
      */
     function updateLLMValidation(uint256 proposalId, bool validated) external override onlyProposalManager {
-        Proposal storage proposal = proposals[proposalId];
+        Proposal storage proposal = _proposals[proposalId];
         require(proposal.id != 0, ProposalNotFound());
 
         proposal.llmValidated = validated;
@@ -183,15 +183,15 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @inheritdoc IProposalManager
      */
     function recordValidatorApproval(uint256 proposalId) external override onlyActiveValidator {
-        Proposal storage proposal = proposals[proposalId];
+        Proposal storage proposal = _proposals[proposalId];
         require(proposal.id != 0, ProposalNotFound());
         require(
             proposal.state == ProposalState.Proposed || proposal.state == ProposalState.OptimisticApproved,
             InvalidStateTransition()
         );
-        require(!hasValidatorApproved[proposalId][msg.sender], ValidatorAlreadyApproved());
+        require(!_hasValidatorApproved[proposalId][msg.sender], ValidatorAlreadyApproved());
 
-        hasValidatorApproved[proposalId][msg.sender] = true;
+        _hasValidatorApproved[proposalId][msg.sender] = true;
         proposal.validatorApprovals++;
 
         emit ValidatorApprovalRecorded(proposalId, msg.sender, proposal.validatorApprovals);
@@ -201,7 +201,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @inheritdoc IProposalManager
      */
     function getProposal(uint256 proposalId) external view override returns (Proposal memory) {
-        Proposal memory proposal = proposals[proposalId];
+        Proposal memory proposal = _proposals[proposalId];
         require(proposal.id != 0, ProposalNotFound());
         return proposal;
     }
@@ -210,21 +210,21 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @inheritdoc IProposalManager
      */
     function getProposalsByProposer(address proposer) external view override returns (uint256[] memory) {
-        return proposerToProposals[proposer];
+        return _proposerToProposals[proposer];
     }
 
     /**
      * @inheritdoc IProposalManager
      */
     function getProposalsByState(ProposalState state) external view override returns (uint256[] memory) {
-        return proposalsByState[state];
+        return _proposalsByState[state];
     }
 
     /**
      * @inheritdoc IProposalManager
      */
     function canChallenge(uint256 proposalId) external view override returns (bool) {
-        Proposal memory proposal = proposals[proposalId];
+        Proposal memory proposal = _proposals[proposalId];
         return proposal.id != 0 && proposal.state == ProposalState.OptimisticApproved
             && block.number <= proposal.challengeWindowEnd;
     }
@@ -233,7 +233,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @inheritdoc IProposalManager
      */
     function canFinalize(uint256 proposalId) external view override returns (bool) {
-        Proposal memory proposal = proposals[proposalId];
+        Proposal memory proposal = _proposals[proposalId];
         return proposal.id != 0 && proposal.state == ProposalState.OptimisticApproved
             && block.number > proposal.challengeWindowEnd;
     }
@@ -242,7 +242,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @inheritdoc IProposalManager
      */
     function hasApproved(uint256 proposalId, address validator) external view override returns (bool) {
-        return hasValidatorApproved[proposalId][validator];
+        return _hasValidatorApproved[proposalId][validator];
     }
 
     /**
@@ -253,7 +253,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
         Proposal[] memory result = new Proposal[](length);
 
         for (uint256 i = 0; i < length; ++i) {
-            result[i] = proposals[proposalIds[i]];
+            result[i] = _proposals[proposalIds[i]];
             require(result[i].id != 0, ProposalNotFound());
         }
 
@@ -267,7 +267,7 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @param toState The new state.
      */
     function _updateProposalStateArrays(uint256 proposalId, ProposalState fromState, ProposalState toState) private {
-        uint256[] storage fromArray = proposalsByState[fromState];
+        uint256[] storage fromArray = _proposalsByState[fromState];
         uint256 length = fromArray.length;
         for (uint256 i = 0; i < length; ++i) {
             if (fromArray[i] == proposalId) {
@@ -277,6 +277,6 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
             }
         }
 
-        proposalsByState[toState].push(proposalId);
+        _proposalsByState[toState].push(proposalId);
     }
 }

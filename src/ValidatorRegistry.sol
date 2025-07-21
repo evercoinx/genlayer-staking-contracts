@@ -30,9 +30,9 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     address public slasher;
     uint256 public activeValidatorLimit;
     mapping(address validator => address proxy) public validatorProxies;
-    address[] private validators;
     address[] public activeValidators;
     uint256 public totalStaked;
+    address[] private _validators;
 
     modifier onlySlasher() {
         require(msg.sender == slasher, CallerNotSlasher());
@@ -214,7 +214,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
             validatorAddress: info.validatorAddress,
             stakedAmount: info.stakedAmount,
             status: ValidatorStatus(uint8(info.status)),
-            unstakeRequestBlock: info.unstakeRequestTime, // Now stores block number
+            unstakeRequestBlock: info.unstakeRequestTime,
             activationTime: info.activationTime
         });
     }
@@ -244,7 +244,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @inheritdoc IValidatorRegistry
      */
     function getTotalValidators() external view override returns (uint256) {
-        return validators.length;
+        return _validators.length;
     }
 
     /**
@@ -322,7 +322,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         gltToken.safeTransfer(address(validatorProxy), stakeAmount);
 
         validatorProxies[msg.sender] = address(validatorProxy);
-        validators.push(msg.sender);
+        _validators.push(msg.sender);
         totalStaked += stakeAmount;
 
         emit ValidatorRegistered(msg.sender, stakeAmount);
@@ -335,13 +335,13 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @dev Internal function to update the active validator set based on stake amounts.
      */
     function _updateActiveValidatorSet() private {
-        uint256 validatorsLength = validators.length;
+        uint256 validatorsLength = _validators.length;
         address[] memory eligibleValidators = new address[](validatorsLength);
         uint256[] memory stakes = new uint256[](validatorsLength);
         uint256 eligibleCount = 0;
 
         for (uint256 i = 0; i < validatorsLength; ++i) {
-            address validatorAddr = validators[i];
+            address validatorAddr = _validators[i];
             IValidator validator = IValidator(validatorProxies[validatorAddr]);
 
             if (

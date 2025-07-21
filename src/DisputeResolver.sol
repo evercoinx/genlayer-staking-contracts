@@ -32,10 +32,10 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
     IProposalManager public immutable proposalManager;
 
     uint256 public totalDisputes;
-    mapping(uint256 disputeId => Dispute) private disputes;
-    mapping(uint256 proposalId => uint256[] disputeIds) private proposalToDisputes;
-    mapping(uint256 disputeId => mapping(address validator => DisputeVote)) private disputeVotes;
-    mapping(uint256 disputeId => mapping(address validator => bool voted)) private hasVoted;
+    mapping(uint256 disputeId => Dispute) private _disputes;
+    mapping(uint256 proposalId => uint256[] disputeIds) private _proposalToDisputes;
+    mapping(uint256 disputeId => mapping(address validator => DisputeVote)) private _disputeVotes;
+    mapping(uint256 disputeId => mapping(address validator => bool voted)) private _hasVoted;
 
     modifier onlyActiveValidator() {
         require(validatorRegistry.isActiveValidator(msg.sender), CallerNotActiveValidator());
@@ -127,7 +127,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
      * @inheritdoc IDisputeResolver
      */
     function cancelDispute(uint256 disputeId, string calldata /* reason */ ) external override onlyOwner {
-        Dispute storage dispute = disputes[disputeId];
+        Dispute storage dispute = _disputes[disputeId];
         require(dispute.proposalId != 0, DisputeNotFound());
         require(dispute.state == DisputeState.Active, InvalidDisputeState());
 
@@ -142,7 +142,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
      * @inheritdoc IDisputeResolver
      */
     function getDispute(uint256 disputeId) external view override returns (Dispute memory) {
-        Dispute memory dispute = disputes[disputeId];
+        Dispute memory dispute = _disputes[disputeId];
         require(dispute.proposalId != 0, DisputeNotFound());
         return dispute;
     }
@@ -151,7 +151,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
      * @inheritdoc IDisputeResolver
      */
     function getDisputesByProposal(uint256 proposalId) external view override returns (uint256[] memory) {
-        return proposalToDisputes[proposalId];
+        return _proposalToDisputes[proposalId];
     }
 
     /**
@@ -166,9 +166,9 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
         override
         returns (bool voted, bool supportChallenge)
     {
-        voted = hasVoted[disputeId][validator];
+        voted = _hasVoted[disputeId][validator];
         if (voted) {
-            supportChallenge = disputeVotes[disputeId][validator].supportChallenge;
+            supportChallenge = _disputeVotes[disputeId][validator].supportChallenge;
         }
     }
 
@@ -176,7 +176,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
      * @inheritdoc IDisputeResolver
      */
     function canResolveDispute(uint256 disputeId) external view override returns (bool) {
-        Dispute memory dispute = disputes[disputeId];
+        Dispute memory dispute = _disputes[disputeId];
         return
             dispute.proposalId != 0 && dispute.state == DisputeState.Active && block.timestamp > dispute.votingEndTime;
     }
@@ -250,7 +250,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
         uint256 disputeId = ++totalDisputes;
         uint256 currentTime = block.timestamp;
 
-        disputes[disputeId] = Dispute({
+        _disputes[disputeId] = Dispute({
             proposalId: proposalId,
             challenger: msg.sender,
             proposer: proposer,
@@ -264,7 +264,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
             slashAmount: 0
         });
 
-        proposalToDisputes[proposalId].push(disputeId);
+        _proposalToDisputes[proposalId].push(disputeId);
 
         return disputeId;
     }
@@ -275,11 +275,11 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
      * @return dispute The dispute storage reference.
      */
     function _validateVotingEligibility(uint256 disputeId) private view returns (Dispute storage) {
-        Dispute storage dispute = disputes[disputeId];
+        Dispute storage dispute = _disputes[disputeId];
         require(dispute.proposalId != 0, DisputeNotFound());
         require(dispute.state == DisputeState.Active, InvalidDisputeState());
         require(block.timestamp <= dispute.votingEndTime, DisputeVotingEnded());
-        require(!hasVoted[disputeId][msg.sender], ValidatorAlreadyVoted());
+        require(!_hasVoted[disputeId][msg.sender], ValidatorAlreadyVoted());
         return dispute;
     }
 
@@ -298,8 +298,8 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
     )
         private
     {
-        hasVoted[disputeId][msg.sender] = true;
-        disputeVotes[disputeId][msg.sender] = DisputeVote({
+        _hasVoted[disputeId][msg.sender] = true;
+        _disputeVotes[disputeId][msg.sender] = DisputeVote({
             validator: msg.sender,
             supportChallenge: supportChallenge,
             signature: signature,
@@ -319,7 +319,7 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
      * @return dispute The dispute storage reference.
      */
     function _validateDisputeResolvable(uint256 disputeId) private view returns (Dispute storage) {
-        Dispute storage dispute = disputes[disputeId];
+        Dispute storage dispute = _disputes[disputeId];
         require(dispute.proposalId != 0, DisputeNotFound());
         require(dispute.state == DisputeState.Active, InvalidDisputeState());
         require(block.timestamp > dispute.votingEndTime, DisputeVotingActive());
