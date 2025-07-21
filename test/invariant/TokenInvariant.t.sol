@@ -74,7 +74,8 @@ contract TokenInvariantTest is Test {
 
         uint256 actualTotalStaked = 0;
         address[] memory allValidators = handler.getValidators();
-        for (uint256 i = 0; i < allValidators.length; i++) {
+        uint256 allValidatorsLength = allValidators.length;
+        for (uint256 i = 0; i < allValidatorsLength; ++i) {
             address proxyAddress = validatorRegistry.getValidatorProxy(allValidators[i]);
             if (proxyAddress != address(0)) {
                 actualTotalStaked += gltToken.balanceOf(proxyAddress);
@@ -135,7 +136,7 @@ contract TokenHandler is Test {
             return;
         }
 
-        address recipient = address(uint160(nextValidatorId++));
+        address recipient = address(uint160(++nextValidatorId));
 
         vm.prank(gltToken.owner());
         gltToken.mint(recipient, amount);
@@ -154,7 +155,7 @@ contract TokenHandler is Test {
     function registerValidator(uint256 stakeAmount) public {
         stakeAmount = 1000e18 + (stakeAmount % (10_000e18 - 1000e18));
 
-        address validator = address(uint160(nextValidatorId++));
+        address validator = address(uint160(++nextValidatorId));
 
         vm.prank(gltToken.owner());
         gltToken.mint(validator, stakeAmount);
@@ -179,25 +180,33 @@ contract TokenHandler is Test {
      * @dev Transfer tokens between holders
      */
     function transferTokens(uint256 fromIndex, uint256 toIndex, uint256 amount) public {
-        if (tokenHolders.length < 2) return;
+        if (tokenHolders.length < 2) {
+            return;
+        }
 
         fromIndex = fromIndex % tokenHolders.length;
         toIndex = toIndex % tokenHolders.length;
 
-        if (fromIndex == toIndex) return;
+        if (fromIndex == toIndex) {
+            return;
+        }
 
         address from = tokenHolders[fromIndex];
         address to = tokenHolders[toIndex];
 
         uint256 balance = gltToken.balanceOf(from);
-        if (balance == 0) return;
+        if (balance == 0) {
+            return;
+        }
 
         if (balance > 0) {
             amount = amount % balance;
         } else {
             return;
         }
-        if (amount == 0) return;
+        if (amount == 0) {
+            return;
+        }
 
         vm.prank(from);
         gltToken.transfer(to, amount);
@@ -207,7 +216,9 @@ contract TokenHandler is Test {
      * @dev Create a dispute (transfers tokens to DisputeResolver)
      */
     function createDispute(uint256 validatorIndex, uint256 challengeStake) public {
-        if (validators.length == 0) return;
+        if (validators.length == 0) {
+            return;
+        }
 
         validatorIndex = validatorIndex % validators.length;
         address challenger = validators[validatorIndex];
@@ -231,14 +242,16 @@ contract TokenHandler is Test {
      * @dev Get total balances of all tracked holders
      */
     function getTotalTrackedBalances() public view returns (uint256 total) {
-        for (uint256 i = 0; i < tokenHolders.length; i++) {
+        uint256 tokenHoldersLength = tokenHolders.length;
+        for (uint256 i = 0; i < tokenHoldersLength; ++i) {
             address holder = tokenHolders[i];
             if (validatorRegistry.getValidatorProxy(holder) == address(0)) {
                 total += gltToken.balanceOf(holder);
             }
         }
 
-        for (uint256 i = 0; i < validators.length; i++) {
+        uint256 validatorsLength = validators.length;
+        for (uint256 i = 0; i < validatorsLength; ++i) {
             address proxyAddress = validatorRegistry.getValidatorProxy(validators[i]);
             if (proxyAddress != address(0)) {
                 total += gltToken.balanceOf(proxyAddress);
@@ -250,7 +263,7 @@ contract TokenHandler is Test {
 
         address owner = gltToken.owner();
         bool ownerIsValidator = false;
-        for (uint256 i = 0; i < validators.length; i++) {
+        for (uint256 i = 0; i < validatorsLength; ++i) {
             if (validators[i] == owner) {
                 ownerIsValidator = true;
                 break;

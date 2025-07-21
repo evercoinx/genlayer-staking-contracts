@@ -81,7 +81,7 @@ contract ConsensusEngineFuzzTest is Test {
         uint256[] memory privateKeys = new uint256[](validatorCount);
         address[] memory validators = new address[](validatorCount);
 
-        for (uint256 i = 0; i < validatorCount; i++) {
+        for (uint256 i = 0; i < validatorCount; ++i) {
             privateKeys[i] = 0x1000 + i;
             validators[i] = _setupValidator(privateKeys[i], MINIMUM_STAKE + ((validatorCount - i) * 100e18));
         }
@@ -104,13 +104,16 @@ contract ConsensusEngineFuzzTest is Test {
         uint256 votesFor = 0;
         uint256 votesAgainst = 0;
 
-        for (uint256 i = 0; i < votingCount && i < activeValidators.length; i++) {
+        for (uint256 i = 0; i < votingCount && i < activeValidators.length; ++i) {
             bool support = i % 2 == 0;
-            if (support) votesFor++;
-            else votesAgainst++;
+            if (support) {
+                ++votesFor;
+            } else {
+                ++votesAgainst;
+            }
 
             uint256 privateKey = 0;
-            for (uint256 j = 0; j < validators.length; j++) {
+            for (uint256 j = 0; j < validators.length; ++j) {
                 if (validators[j] == activeValidators[i]) {
                     privateKey = privateKeys[j];
                     break;
@@ -167,7 +170,7 @@ contract ConsensusEngineFuzzTest is Test {
         uint256[] memory privateKeys = new uint256[](validatorCount);
         address[] memory validators = new address[](validatorCount);
 
-        for (uint256 i = 0; i < validatorCount; i++) {
+        for (uint256 i = 0; i < validatorCount; ++i) {
             privateKeys[i] = 0x3000 + i;
             validators[i] = _setupValidator(privateKeys[i], MINIMUM_STAKE + ((validatorCount - i) * 200e18));
         }
@@ -190,12 +193,12 @@ contract ConsensusEngineFuzzTest is Test {
         uint256 votesFor = 0;
         uint256 votesAgainst = 0;
 
-        for (uint256 i = 0; i < validatorCount; i++) {
+        for (uint256 i = 0; i < validatorCount; ++i) {
             if ((seed >> i) & 1 == 1) {
                 bool support = ((seed >> (i + 10)) & 1) == 1;
 
                 uint256 privateKey = 0;
-                for (uint256 j = 0; j < validators.length; j++) {
+                for (uint256 j = 0; j < validators.length; ++j) {
                     if (validators[j] == activeValidators[i]) {
                         privateKey = privateKeys[j];
                         break;
@@ -206,8 +209,11 @@ contract ConsensusEngineFuzzTest is Test {
                 vm.prank(activeValidators[i]);
                 consensusEngine.castVote(roundId, support, _createVoteSignature(privateKey, roundId, support));
 
-                if (support) votesFor++;
-                else votesAgainst++;
+                if (support) {
+                    ++votesFor;
+                } else {
+                    ++votesAgainst;
+                }
             }
         }
 

@@ -160,7 +160,7 @@ contract DisputeResolverTest is Test {
 
         uint256 balanceBefore = gltToken.balanceOf(validator3);
 
-        vm.expectEmit(true, true, true, true);
+        vm.expectEmit();
         emit DisputeCreated(1, proposalId, validator3, challengeStake);
 
         vm.prank(validator3);
@@ -641,22 +641,22 @@ contract DisputeResolverTest is Test {
             [VALIDATOR1_PRIVATE_KEY, VALIDATOR2_PRIVATE_KEY, VALIDATOR3_PRIVATE_KEY, VALIDATOR4_PRIVATE_KEY];
         uint256 voteIndex = 0;
 
-        for (uint256 i = 0; i < votesFor && voteIndex < 4; i++) {
+        for (uint256 i = 0; i < votesFor && voteIndex < 4; ++i) {
             if (validators[voteIndex] != validator3) {
                 bytes memory sig = _createVoteSignature(privateKeys[voteIndex], disputeId, true);
                 vm.prank(validators[voteIndex]);
                 disputeResolver.voteOnDispute(disputeId, true, sig);
             }
-            voteIndex++;
+            ++voteIndex;
         }
 
-        for (uint256 i = 0; i < votesAgainst && voteIndex < 4; i++) {
+        for (uint256 i = 0; i < votesAgainst && voteIndex < 4; ++i) {
             if (validators[voteIndex] != validator3) {
                 bytes memory sig = _createVoteSignature(privateKeys[voteIndex], disputeId, false);
                 vm.prank(validators[voteIndex]);
                 disputeResolver.voteOnDispute(disputeId, false, sig);
             }
-            voteIndex++;
+            ++voteIndex;
         }
 
         vm.warp(block.timestamp + DISPUTE_VOTING_PERIOD + 1);

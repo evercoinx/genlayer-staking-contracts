@@ -65,13 +65,15 @@ contract ProposalManagerFuzzTest is Test {
         uint256[] memory proposalIds = new uint256[](contentHashes.length);
         uint256 validProposals = 0;
 
-        for (uint256 i = 0; i < contentHashes.length; i++) {
-            if (contentHashes[i] == bytes32(0)) continue;
+        for (uint256 i = 0; i < contentHashes.length; ++i) {
+            if (contentHashes[i] == bytes32(0)) {
+                continue;
+            }
 
             vm.prank(validator1);
             proposalIds[validProposals] =
                 proposalManager.createProposal(contentHashes[i], string(abi.encodePacked("Proposal ", i)));
-            validProposals++;
+            ++validProposals;
         }
 
         assertEq(proposalManager.totalProposals(), validProposals);
@@ -105,7 +107,6 @@ contract ProposalManagerFuzzTest is Test {
             proposalManager.challengeProposal(proposalId);
         }
     }
-
 
     function testFuzz_StateTransitions(uint8[] memory operations) public {
         if (operations.length == 0) {
@@ -184,5 +185,4 @@ contract ProposalManagerFuzzTest is Test {
         IProposalManager.Proposal memory proposal = proposalManager.getProposal(proposalId);
         assertEq(bytes(proposal.metadata).length, size);
     }
-
 }

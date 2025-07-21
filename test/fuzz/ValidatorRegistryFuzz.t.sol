@@ -86,7 +86,7 @@ contract ValidatorRegistryFuzzTest is Test {
     function testFuzz_MultipleValidators(uint8 validatorCount) public {
         validatorCount = uint8(bound(validatorCount, 1, 5));
 
-        for (uint256 i = 0; i < validatorCount; i++) {
+        for (uint256 i = 0; i < validatorCount; ++i) {
             address validator = address(uint160(i + 1));
             uint256 stake = MINIMUM_STAKE + (i * 100e18);
 
@@ -186,7 +186,7 @@ contract ValidatorRegistryFuzzTest is Test {
         address[] memory validators = new address[](3);
         uint256 validCount = 0;
 
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; ++i) {
             stakes[i] = bound(stakes[i], MINIMUM_STAKE, 100_000e18);
 
             validators[i] = address(uint160(i + 100));
@@ -194,18 +194,19 @@ contract ValidatorRegistryFuzzTest is Test {
 
             vm.prank(validators[i]);
             registry.registerValidator(stakes[i]);
-            validCount++;
+            ++validCount;
         }
 
         address[] memory activeValidators = registry.getActiveValidators();
 
-        for (uint256 i = 1; i < activeValidators.length; i++) {
+        uint256 activeValidatorsLength = activeValidators.length;
+        for (uint256 i = 1; i < activeValidatorsLength; ++i) {
             IValidatorRegistry.ValidatorInfo memory prev = registry.getValidatorInfo(activeValidators[i - 1]);
             IValidatorRegistry.ValidatorInfo memory curr = registry.getValidatorInfo(activeValidators[i]);
             assertGe(prev.stakedAmount, curr.stakedAmount);
         }
 
-        for (uint256 i = 0; i < activeValidators.length; i++) {
+        for (uint256 i = 0; i < activeValidatorsLength; ++i) {
             address proxyAddress = registry.getValidatorProxy(activeValidators[i]);
             assertTrue(proxyAddress != address(0));
         }

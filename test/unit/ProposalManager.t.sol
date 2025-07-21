@@ -14,7 +14,7 @@ import { GLTToken } from "../../src/GLTToken.sol";
  */
 contract ProposalManagerTest is Test {
     // Constants
-    uint256 private constant MINIMUM_STAKE = 1_000e18;
+    uint256 private constant MINIMUM_STAKE = 1000e18;
     uint256 private constant CHALLENGE_WINDOW_DURATION = 10;
 
     ProposalManager public proposalManager;
@@ -54,17 +54,17 @@ contract ProposalManagerTest is Test {
         vm.prank(validator1);
         gltToken.approve(address(validatorRegistry), type(uint256).max);
         vm.prank(validator1);
-        validatorRegistry.registerValidator(2_000e18);
+        validatorRegistry.registerValidator(2000e18);
 
         vm.prank(validator2);
         gltToken.approve(address(validatorRegistry), type(uint256).max);
         vm.prank(validator2);
-        validatorRegistry.registerValidator(2_000e18);
+        validatorRegistry.registerValidator(2000e18);
 
         vm.prank(validator3);
         gltToken.approve(address(validatorRegistry), type(uint256).max);
         vm.prank(validator3);
-        validatorRegistry.registerValidator(2_000e18);
+        validatorRegistry.registerValidator(2000e18);
     }
 
     // === Create Proposal ===
@@ -95,7 +95,7 @@ contract ProposalManagerTest is Test {
         bytes32 contentHash = keccak256("proposal content");
         string memory metadata = "Test proposal";
 
-        vm.expectEmit(true, true, true, true);
+        vm.expectEmit();
         emit ProposalCreated(1, nonValidator, contentHash);
 
         vm.prank(nonValidator);
@@ -405,8 +405,6 @@ contract ProposalManagerTest is Test {
         vm.expectRevert(IProposalManager.ProposalNotFound.selector);
         proposalManager.getProposal(999);
     }
-
-
 
     function test_CanChallenge() public {
         vm.prank(validator1);

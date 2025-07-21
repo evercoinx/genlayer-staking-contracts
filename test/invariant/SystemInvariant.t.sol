@@ -51,11 +51,7 @@ contract SystemInvariantTest is Test {
         handler = new SystemHandler(gltToken, validatorRegistry, proposalManager, consensusEngine, disputeResolver);
 
         vm.prank(proposalManager.owner());
-        proposalManager = new ProposalManager(
-            address(validatorRegistry),
-            address(llmOracle),
-            address(handler)
-        );
+        proposalManager = new ProposalManager(address(validatorRegistry), address(llmOracle), address(handler));
 
         vm.prank(consensusEngine.owner());
         consensusEngine.setConsensusInitiator(address(handler));
@@ -78,8 +74,9 @@ contract SystemInvariantTest is Test {
      */
     function invariant_ActiveValidatorsHaveMinimumStake() public view {
         address[] memory activeValidators = validatorRegistry.getActiveValidators();
+        uint256 length = activeValidators.length;
 
-        for (uint256 i = 0; i < activeValidators.length; i++) {
+        for (uint256 i = 0; i < length; ++i) {
             IValidatorRegistry.ValidatorInfo memory info = validatorRegistry.getValidatorInfo(activeValidators[i]);
             assertGe(info.stakedAmount, 1000e18);
         }
@@ -92,7 +89,7 @@ contract SystemInvariantTest is Test {
         uint256 totalProposals = proposalManager.totalProposals();
         uint256 startIndex = totalProposals > 10 ? totalProposals - 9 : 1;
 
-        for (uint256 i = startIndex; i <= totalProposals; i++) {
+        for (uint256 i = startIndex; i <= totalProposals; ++i) {
             IProposalManager.Proposal memory proposal = proposalManager.getProposal(i);
 
             assertTrue(uint8(proposal.state) <= uint8(IProposalManager.ProposalState.Rejected));
@@ -108,8 +105,9 @@ contract SystemInvariantTest is Test {
      */
     function invariant_ConsensusVoteCountsValid() public view {
         uint256[] memory roundIds = handler.getConsensusRounds();
+        uint256 length = roundIds.length;
 
-        for (uint256 i = 0; i < roundIds.length; i++) {
+        for (uint256 i = 0; i < length; ++i) {
             (uint256 votesFor, uint256 votesAgainst, uint256 totalValidators) =
                 consensusEngine.getVoteCounts(roundIds[i]);
 
@@ -124,7 +122,7 @@ contract SystemInvariantTest is Test {
         uint256 totalDisputes = disputeResolver.totalDisputes();
         uint256 startIndex = totalDisputes > 10 ? totalDisputes - 9 : 1;
 
-        for (uint256 i = startIndex; i <= totalDisputes; i++) {
+        for (uint256 i = startIndex; i <= totalDisputes; ++i) {
             IDisputeResolver.Dispute memory dispute = disputeResolver.getDispute(i);
 
             if (dispute.state == IDisputeResolver.DisputeState.Resolved) {
@@ -140,8 +138,9 @@ contract SystemInvariantTest is Test {
      */
     function invariant_SlashedValidatorsHaveReducedStake() public view {
         address[] memory slashedValidators = handler.getSlashedValidators();
+        uint256 length = slashedValidators.length;
 
-        for (uint256 i = 0; i < slashedValidators.length; i++) {
+        for (uint256 i = 0; i < length; ++i) {
             IValidatorRegistry.ValidatorInfo memory info = validatorRegistry.getValidatorInfo(slashedValidators[i]);
 
             if (info.stakedAmount < 1000e18) {
@@ -194,7 +193,7 @@ contract SystemHandler is Test {
     function registerValidator(uint256 stake) public {
         stake = 1000e18 + (stake % (50_000e18 - 1000e18));
 
-        uint256 privateKey = nextValidatorKey++;
+        uint256 privateKey = ++nextValidatorKey;
         address validator = vm.addr(privateKey);
 
         vm.prank(gltToken.owner());
@@ -217,7 +216,9 @@ contract SystemHandler is Test {
      * @dev Create a proposal
      */
     function createProposal(uint256 validatorIndex, bytes32 contentHash) public {
-        if (validators.length == 0) return;
+        if (validators.length == 0) {
+            return;
+        }
 
         validatorIndex = validatorIndex % validators.length;
         address proposer = validators[validatorIndex];
@@ -232,7 +233,9 @@ contract SystemHandler is Test {
      * @dev Approve proposal optimistically
      */
     function approveProposalOptimistically(uint256 proposalIndex) public {
-        if (proposals.length == 0) return;
+        if (proposals.length == 0) {
+            return;
+        }
 
         proposalIndex = proposalIndex % proposals.length;
         uint256 proposalId = proposals[proposalIndex];
@@ -244,7 +247,9 @@ contract SystemHandler is Test {
      * @dev Challenge a proposal
      */
     function challengeProposal(uint256 proposalIndex, uint256 validatorIndex) public {
-        if (proposals.length == 0 || validators.length == 0) return;
+        if (proposals.length == 0 || validators.length == 0) {
+            return;
+        }
 
         proposalIndex = proposalIndex % proposals.length;
         validatorIndex = validatorIndex % validators.length;
@@ -260,7 +265,9 @@ contract SystemHandler is Test {
      * @dev Initiate consensus
      */
     function initiateConsensus(uint256 proposalIndex) public {
-        if (proposals.length == 0) return;
+        if (proposals.length == 0) {
+            return;
+        }
 
         proposalIndex = proposalIndex % proposals.length;
         uint256 proposalId = proposals[proposalIndex];
@@ -274,7 +281,9 @@ contract SystemHandler is Test {
      * @dev Cast vote in consensus
      */
     function castConsensusVote(uint256 roundIndex, uint256 validatorIndex, bool support) public {
-        if (consensusRounds.length == 0 || validators.length == 0) return;
+        if (consensusRounds.length == 0 || validators.length == 0) {
+            return;
+        }
 
         roundIndex = roundIndex % consensusRounds.length;
         validatorIndex = validatorIndex % validators.length;
@@ -293,7 +302,9 @@ contract SystemHandler is Test {
      * @dev Create a dispute
      */
     function createDispute(uint256 proposalIndex, uint256 validatorIndex, uint256 challengeStake) public {
-        if (proposals.length == 0 || validators.length == 0) return;
+        if (proposals.length == 0 || validators.length == 0) {
+            return;
+        }
 
         proposalIndex = proposalIndex % proposals.length;
         validatorIndex = validatorIndex % validators.length;
@@ -324,7 +335,9 @@ contract SystemHandler is Test {
      * @dev Resolve dispute (with slashing)
      */
     function resolveDispute(uint256 disputeIndex) public {
-        if (disputes.length == 0) return;
+        if (disputes.length == 0) {
+            return;
+        }
 
         disputeIndex = disputeIndex % disputes.length;
         uint256 disputeId = disputes[disputeIndex];

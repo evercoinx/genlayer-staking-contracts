@@ -24,7 +24,7 @@ contract ConsensusEngineTest is Test {
     uint256 private constant VALIDATOR1_PRIVATE_KEY = 0x1234;
     uint256 private constant VALIDATOR2_PRIVATE_KEY = 0x5678;
     uint256 private constant VALIDATOR3_PRIVATE_KEY = 0x9ABC;
-    uint256 private constant MINIMUM_STAKE = 1_000e18;
+    uint256 private constant MINIMUM_STAKE = 1000e18;
     uint256 private constant VOTING_PERIOD = 100;
     uint256 private constant QUORUM_PERCENTAGE = 60;
 
@@ -74,17 +74,17 @@ contract ConsensusEngineTest is Test {
         vm.prank(validator1);
         gltToken.approve(address(validatorRegistry), type(uint256).max);
         vm.prank(validator1);
-        validatorRegistry.registerValidator(3_000e18);
+        validatorRegistry.registerValidator(3000e18);
 
         vm.prank(validator2);
         gltToken.approve(address(validatorRegistry), type(uint256).max);
         vm.prank(validator2);
-        validatorRegistry.registerValidator(2_000e18);
+        validatorRegistry.registerValidator(2000e18);
 
         vm.prank(validator3);
         gltToken.approve(address(validatorRegistry), type(uint256).max);
         vm.prank(validator3);
-        validatorRegistry.registerValidator(1_000e18);
+        validatorRegistry.registerValidator(1000e18);
     }
 
     // === Constructor Tests ===
@@ -389,7 +389,7 @@ contract ConsensusEngineTest is Test {
 
         vm.expectEmit(true, true, false, true);
         emit IConsensusEngine.ConsensusInitiatorUpdated(oldInitiator, newInitiator);
-        
+
         consensusEngine.setConsensusInitiator(newInitiator);
 
         assertEq(consensusEngine.consensusInitiator(), newInitiator);
@@ -547,14 +547,14 @@ contract ConsensusEngineTest is Test {
             bytes memory signature = _createVoteSignature(privateKeys[validatorIndex], roundId, true);
             vm.prank(validators[validatorIndex]);
             consensusEngine.castVote(roundId, true, signature);
-            validatorIndex++;
+            ++validatorIndex;
         }
 
         for (uint256 i = 0; i < votesAgainst; ++i) {
             bytes memory signature = _createVoteSignature(privateKeys[validatorIndex], roundId, false);
             vm.prank(validators[validatorIndex]);
             consensusEngine.castVote(roundId, false, signature);
-            validatorIndex++;
+            ++validatorIndex;
         }
 
         (uint256 roundVotesFor, uint256 roundVotesAgainst,) = consensusEngine.getVoteCounts(roundId);

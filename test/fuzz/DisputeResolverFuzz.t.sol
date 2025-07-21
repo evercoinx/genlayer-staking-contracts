@@ -106,7 +106,7 @@ contract DisputeResolverFuzzTest is Test {
         uint256[] memory privateKeys = new uint256[](totalValidators);
         address[] memory validators = new address[](totalValidators);
 
-        for (uint256 i = 0; i < totalValidators; i++) {
+        for (uint256 i = 0; i < totalValidators; ++i) {
             privateKeys[i] = 0x3000 + i;
             validators[i] = _setupValidator(privateKeys[i], MINIMUM_STAKE + ((totalValidators - i) * 100e18));
         }
@@ -122,11 +122,12 @@ contract DisputeResolverFuzzTest is Test {
         uint256 disputeId = disputeResolver.createDispute(proposalId, 200e18);
         uint256 votesFor = 0;
         uint256 votesAgainst = 0;
+        uint256 activeValidatorsLength = activeValidators.length;
 
-        for (uint256 i = 2; i < 2 + votingValidators && i < activeValidators.length; i++) {
+        for (uint256 i = 2; i < 2 + votingValidators && i < activeValidatorsLength; ++i) {
             bool supportChallenge = ((votingPattern >> (i - 2)) & 1) == 1;
             uint256 privateKey = 0;
-            for (uint256 j = 0; j < validators.length; j++) {
+            for (uint256 j = 0; j < validators.length; ++j) {
                 if (validators[j] == activeValidators[i]) {
                     privateKey = privateKeys[j];
                     break;
@@ -139,8 +140,11 @@ contract DisputeResolverFuzzTest is Test {
                 disputeId, supportChallenge, _createDisputeVoteSignature(privateKey, disputeId, supportChallenge)
             );
 
-            if (supportChallenge) votesFor++;
-            else votesAgainst++;
+            if (supportChallenge) {
+                ++votesFor;
+            } else {
+                ++votesAgainst;
+            }
         }
         IDisputeResolver.Dispute memory dispute = disputeResolver.getDispute(disputeId);
         assertEq(dispute.votesFor, votesFor);
@@ -192,7 +196,7 @@ contract DisputeResolverFuzzTest is Test {
         proposalManager.approveOptimistically(proposalId);
 
         uint256[] memory disputeIds = new uint256[](disputeCount);
-        for (uint256 i = 0; i < disputeCount; i++) {
+        for (uint256 i = 0; i < disputeCount; ++i) {
             address challenger = _setupValidator(0x8000 + i, 2000e18);
             uint256 stake = bound((seed >> (i * 8)) & 0xFF, MINIMUM_CHALLENGE_STAKE, 500e18);
 

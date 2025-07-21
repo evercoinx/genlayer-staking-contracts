@@ -14,7 +14,7 @@ import { GLTToken } from "../../src/GLTToken.sol";
  */
 contract ValidatorFuzzTest is Test {
     // Constants
-    uint256 private constant MINIMUM_STAKE = 1_000e18;
+    uint256 private constant MINIMUM_STAKE = 1000e18;
     uint256 private constant BONDING_PERIOD = 1;
 
     Validator public validatorImplementation;
@@ -214,9 +214,7 @@ contract ValidatorFuzzTest is Test {
                 currentStake += increase;
                 stakedInValidator += increase;
             } else if (opType == 1 && currentStake > MINIMUM_STAKE * 2) {
-                uint256 slashAmount = bound(
-                    uint256(keccak256(abi.encode(seed, i, "slash"))), 1, currentStake / 2
-                );
+                uint256 slashAmount = bound(uint256(keccak256(abi.encode(seed, i, "slash"))), 1, currentStake / 2);
 
                 vm.startPrank(registry);
                 validator.slash(slashAmount, "fuzz slash");
@@ -251,13 +249,11 @@ contract ValidatorFuzzTest is Test {
                 vm.startPrank(registry);
                 validator.completeUnstake();
                 vm.stopPrank();
-                
+
                 hasUnstakeRequest = false;
             }
 
-            uint256 unstakeAmount = bound(
-                uint256(keccak256(abi.encode(seed, i))), 1, currentStake / 2
-            );
+            uint256 unstakeAmount = bound(uint256(keccak256(abi.encode(seed, i))), 1, currentStake / 2);
 
             if (currentStake - unstakeAmount < MINIMUM_STAKE) {
                 unstakeAmount = currentStake - MINIMUM_STAKE;
@@ -267,15 +263,13 @@ contract ValidatorFuzzTest is Test {
                 vm.startPrank(registry);
                 validator.requestUnstake(unstakeAmount);
                 vm.stopPrank();
-                
+
                 currentStake -= unstakeAmount;
                 hasUnstakeRequest = true;
             }
 
             if (i % 2 == 0 && currentStake < 40_000e18) {
-                uint256 increase = bound(
-                    uint256(keccak256(abi.encode(seed, i, "increase"))), 1_000e18, 10_000e18
-                );
+                uint256 increase = bound(uint256(keccak256(abi.encode(seed, i, "increase"))), 1000e18, 10_000e18);
 
                 vm.startPrank(validatorAddress);
                 gltToken.approve(address(this), increase);

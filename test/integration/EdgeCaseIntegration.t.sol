@@ -147,7 +147,7 @@ contract EdgeCaseIntegrationTest is Test {
     function test_EdgeCase_MaximumValidatorsReached() public {
         uint256 activeValidatorLimit = validatorRegistry.activeValidatorLimit();
 
-        for (uint256 i = 4; i <= activeValidatorLimit; i++) {
+        for (uint256 i = 4; i <= activeValidatorLimit; ++i) {
             address newValidator = address(uint160(i * 1000));
             gltToken.mint(newValidator, 2000e18);
 
@@ -342,7 +342,7 @@ contract EdgeCaseIntegrationTest is Test {
         uint256[] memory proposalIds = new uint256[](3);
         uint256[] memory disputeIds = new uint256[](3);
 
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; ++i) {
             vm.prank(validator1);
             proposalIds[i] = proposalManager.createProposal(
                 keccak256(abi.encodePacked("bad proposal", i)), string(abi.encodePacked("Bad ", i))
@@ -357,7 +357,7 @@ contract EdgeCaseIntegrationTest is Test {
 
         IValidatorRegistry.ValidatorInfo memory infoBefore = validatorRegistry.getValidatorInfo(validator1);
 
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; ++i) {
             vm.prank(validator3);
             disputeResolver.voteOnDispute(
                 disputeIds[i], true, createDisputeVoteSignature(VALIDATOR3_PRIVATE_KEY, disputeIds[i], true)
@@ -371,7 +371,7 @@ contract EdgeCaseIntegrationTest is Test {
 
         vm.warp(block.timestamp + DISPUTE_VOTING_PERIOD + 1);
 
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; ++i) {
             disputeResolver.resolveDispute(disputeIds[i]);
         }
 
