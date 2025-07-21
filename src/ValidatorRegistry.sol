@@ -29,7 +29,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
 
     address public slasher;
     uint256 public activeValidatorLimit;
-    mapping(address => address) public validatorProxies;
+    mapping(address validator => address proxy) public validatorProxies;
     address[] private validators;
     address[] public activeValidators;
     uint256 public totalStaked;

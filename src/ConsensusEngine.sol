@@ -27,9 +27,9 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
     address public consensusInitiator;
 
     uint256 private roundCounter;
-    mapping(uint256 => ConsensusRound) private consensusRounds;
-    mapping(uint256 => uint256) private proposalToCurrentRound;
-    mapping(uint256 => mapping(address => Vote)) private roundVotes;
+    mapping(uint256 roundId => ConsensusRound) private consensusRounds;
+    mapping(uint256 proposalId => uint256 currentRoundId) private proposalToCurrentRound;
+    mapping(uint256 roundId => mapping(address validator => Vote)) private roundVotes;
 
     modifier onlyActiveValidator() {
         require(validatorRegistry.isActiveValidator(msg.sender), NotActiveValidator());
@@ -65,10 +65,12 @@ contract ConsensusEngine is IConsensusEngine, Ownable, ReentrancyGuard {
         Ownable(msg.sender)
     {
         require(_validatorRegistry != address(0), ZeroValidatorRegistry());
-        require(_proposalManager != address(0), ZeroProposalManager());
-        require(_consensusInitiator != address(0), ZeroConsensusInitiator());
         validatorRegistry = IValidatorRegistry(_validatorRegistry);
+
+        require(_proposalManager != address(0), ZeroProposalManager());
         proposalManager = IProposalManager(_proposalManager);
+
+        require(_consensusInitiator != address(0), ZeroConsensusInitiator());
         consensusInitiator = _consensusInitiator;
     }
 

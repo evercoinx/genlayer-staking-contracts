@@ -14,15 +14,16 @@ import { IValidatorRegistry } from "./interfaces/IValidatorRegistry.sol";
  */
 contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     uint256 public constant CHALLENGE_WINDOW_DURATION = 10;
+
     IValidatorRegistry public immutable validatorRegistry;
     IMockLLMOracle public immutable llmOracle;
 
     address public proposalManager;
     uint256 public totalProposals;
-    mapping(uint256 => Proposal) private proposals;
-    mapping(address => uint256[]) private proposerToProposals;
-    mapping(ProposalState => uint256[]) private proposalsByState;
-    mapping(uint256 => mapping(address => bool)) private hasValidatorApproved;
+    mapping(uint256 proposalId => Proposal) private proposals;
+    mapping(address proposer => uint256[] proposalIds) private proposerToProposals;
+    mapping(ProposalState state => uint256[] proposalIds) private proposalsByState;
+    mapping(uint256 proposalId => mapping(address validator => bool approved)) private hasValidatorApproved;
 
     /**
      * @dev Modifier to restrict functions to active validators.

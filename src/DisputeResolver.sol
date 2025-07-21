@@ -32,10 +32,10 @@ contract DisputeResolver is IDisputeResolver, Ownable, ReentrancyGuard {
     IProposalManager public immutable proposalManager;
 
     uint256 public totalDisputes;
-    mapping(uint256 => Dispute) private disputes;
-    mapping(uint256 => uint256[]) private proposalToDisputes;
-    mapping(uint256 => mapping(address => DisputeVote)) private disputeVotes;
-    mapping(uint256 => mapping(address => bool)) private hasVoted;
+    mapping(uint256 disputeId => Dispute) private disputes;
+    mapping(uint256 proposalId => uint256[] disputeIds) private proposalToDisputes;
+    mapping(uint256 disputeId => mapping(address validator => DisputeVote)) private disputeVotes;
+    mapping(uint256 disputeId => mapping(address validator => bool voted)) private hasVoted;
 
     modifier onlyActiveValidator() {
         require(validatorRegistry.isActiveValidator(msg.sender), CallerNotActiveValidator());
