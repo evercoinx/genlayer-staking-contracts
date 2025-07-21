@@ -6,6 +6,7 @@ import { BeaconProxy } from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.so
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { IValidator } from "./interfaces/IValidator.sol";
 import { IValidatorRegistry } from "./interfaces/IValidatorRegistry.sol";
 import { Validator } from "./Validator.sol";
@@ -13,11 +14,12 @@ import { ValidatorBeacon } from "./ValidatorBeacon.sol";
 
 /**
  * @title ValidatorRegistry
- * @dev Manages validator registration using beacon proxy pattern where each validator
- * gets their own beacon proxy contract to hold stake and metadata.
+ * @dev Manages validator registration using beacon proxy pattern with optimized data structures
+ * for O(1) lookups and efficient validator set management.
  */
 contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     uint256 public constant MINIMUM_STAKE = 1000e18;
     uint256 public constant BONDING_PERIOD = 1;
@@ -30,9 +32,10 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     address public slasher;
     uint256 public activeValidatorLimit;
     mapping(address validator => address proxy) public validatorProxies;
-    address[] public activeValidators;
     uint256 public totalStaked;
-    address[] private _validators;
+    EnumerableSet.AddressSet private _allValidators;
+    address[] private _sortedActiveValidators;
+    mapping(address validator => bool isActive) private _isActiveValidator;
 
     modifier onlySlasher() {
         require(msg.sender == slasher, CallerNotSlasher());
@@ -244,26 +247,21 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
      * @inheritdoc IValidatorRegistry
      */
     function getTotalValidators() external view override returns (uint256) {
-        return _validators.length;
+        return _allValidators.length();
     }
 
     /**
      * @inheritdoc IValidatorRegistry
      */
     function isActiveValidator(address validator) external view override returns (bool) {
-        for (uint256 i = 0; i < activeValidators.length; ++i) {
-            if (activeValidators[i] == validator) {
-                return true;
-            }
-        }
-        return false;
+        return _isActiveValidator[validator];
     }
 
     /**
      * @inheritdoc IValidatorRegistry
      */
     function getActiveValidators() external view override returns (address[] memory) {
-        return activeValidators;
+        return _sortedActiveValidators;
     }
 
     /**
@@ -279,11 +277,11 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     function getTopValidators(uint256 n) external view override returns (address[] memory topValidators) {
         require(n != 0, InvalidCount());
 
-        uint256 count = n < activeValidators.length ? n : activeValidators.length;
+        uint256 count = n < _sortedActiveValidators.length ? n : _sortedActiveValidators.length;
         topValidators = new address[](count);
 
-        for (uint256 i = 0; i < count; i++) {
-            topValidators[i] = activeValidators[i];
+        for (uint256 i = 0; i < count; ++i) {
+            topValidators[i] = _sortedActiveValidators[i];
         }
     }
 
@@ -293,10 +291,14 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     function isTopValidator(address validator, uint256 n) external view override returns (bool isTop) {
         require(n != 0, InvalidCount());
 
-        uint256 count = n < activeValidators.length ? n : activeValidators.length;
+        if (!_isActiveValidator[validator]) {
+            return false;
+        }
+
+        uint256 count = n < _sortedActiveValidators.length ? n : _sortedActiveValidators.length;
 
         for (uint256 i = 0; i < count; ++i) {
-            if (activeValidators[i] == validator) {
+            if (_sortedActiveValidators[i] == validator) {
                 return true;
             }
         }
@@ -322,7 +324,7 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         gltToken.safeTransfer(address(validatorProxy), stakeAmount);
 
         validatorProxies[msg.sender] = address(validatorProxy);
-        _validators.push(msg.sender);
+        _allValidators.add(msg.sender);
         totalStaked += stakeAmount;
 
         emit ValidatorRegistered(msg.sender, stakeAmount);
@@ -332,16 +334,16 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Internal function to update the active validator set based on stake amounts.
+     * @dev Updates the active validator set based on stake amounts.
      */
     function _updateActiveValidatorSet() private {
-        uint256 validatorsLength = _validators.length;
+        uint256 validatorsLength = _allValidators.length();
         address[] memory eligibleValidators = new address[](validatorsLength);
         uint256[] memory stakes = new uint256[](validatorsLength);
         uint256 eligibleCount = 0;
 
         for (uint256 i = 0; i < validatorsLength; ++i) {
-            address validatorAddr = _validators[i];
+            address validatorAddr = _allValidators.at(i);
             IValidator validator = IValidator(validatorProxies[validatorAddr]);
 
             if (
@@ -354,7 +356,6 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
             }
         }
 
-        // Sort validators by stake amount (descending) using insertion sort
         if (eligibleCount > 1) {
             for (uint256 i = 1; i < eligibleCount; i++) {
                 uint256 keyStake = stakes[i];
@@ -372,12 +373,20 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
             }
         }
 
-        uint256 activeCount = eligibleCount < activeValidatorLimit ? eligibleCount : activeValidatorLimit;
-        delete activeValidators;
-        for (uint256 i = 0; i < activeCount; ++i) {
-            activeValidators.push(eligibleValidators[i]);
+        uint256 currentLength = _sortedActiveValidators.length;
+        for (uint256 i = 0; i < currentLength; ++i) {
+            _isActiveValidator[_sortedActiveValidators[i]] = false;
         }
 
-        emit ActiveValidatorSetUpdated(activeValidators, block.number);
+        uint256 activeCount = eligibleCount < activeValidatorLimit ? eligibleCount : activeValidatorLimit;
+        delete _sortedActiveValidators;
+
+        for (uint256 i = 0; i < activeCount; ++i) {
+            address validator = eligibleValidators[i];
+            _sortedActiveValidators.push(validator);
+            _isActiveValidator[validator] = true;
+        }
+
+        emit ActiveValidatorSetUpdated(_sortedActiveValidators, block.number);
     }
 }
