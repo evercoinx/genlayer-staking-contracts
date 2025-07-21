@@ -3,7 +3,7 @@ ifneq (,$(wildcard .env))
     export
 endif
 
-.PHONY: fmt compile test gas coverage deploy-genlayer deploy-all deploy-localhost deploy-base-sepolia deploy-base
+.PHONY: fmt compile test test-unit test-integration test-fuzz test-invariant gas coverage deploy-genlayer deploy-all deploy-localhost deploy-base-sepolia deploy-base
 
 DEPLOY_PARAMS :=
 ifeq ($(LOCAL_DEPLOY),1)
@@ -16,7 +16,11 @@ all:
 	@echo "Available targets:"
 	@echo "  fmt                          - Format code"
 	@echo "  compile                      - Compile contracts"
-	@echo "  test                         - Run tests"
+	@echo "  test                         - Run all tests"
+	@echo "  test-unit                    - Run unit tests only"
+	@echo "  test-integration             - Run integration tests only"
+	@echo "  test-fuzz                    - Run fuzz tests only"
+	@echo "  test-invariant               - Run invariant tests only"
 	@echo "  gas                          - Generate gas report"
 	@echo "  coverage                     - Run test coverage with summary report"
 	@echo "  deploy-localhost             - Deploy GenLayer contracts to localhost"
@@ -32,8 +36,20 @@ compile:
 test:
 	@forge test -vvv --fail-fast
 
+test-unit:
+	@forge test --match-path "test/unit/*" -vvv --fail-fast
+
+test-integration:
+	@forge test --match-path "test/integration/*" -vvv --fail-fast
+
+test-fuzz:
+	@forge test --match-path "test/fuzz/*" -vvv --fail-fast
+
+test-invariant:
+	@forge test --match-path "test/invariant/*" -vvv --fail-fast
+
 gas:
-	@forge snapshot --gas-report
+	@forge test --gas-report
 
 coverage:
 	@echo "Running test coverage with summary report for core contracts..."

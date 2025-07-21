@@ -233,12 +233,43 @@ forge build
 
 The project includes comprehensive test coverage with 241 test functions across 16 test files:
 
+### Available Make Commands
+
+```bash
+# Testing commands
+make test              # Run all tests with verbose output
+make test-unit         # Run unit tests only
+make test-integration  # Run integration tests only
+make test-fuzz         # Run fuzz tests only
+make test-invariant    # Run invariant tests only
+make gas               # Run tests with gas reporting
+make coverage          # Run test coverage for core contracts
+
+# Development commands
+make fmt               # Format Solidity code
+make compile           # Compile contracts and show sizes
+```
+
+### Test Examples
+
 ```bash
 # Run all tests
-forge test
+make test
+
+# Run only unit tests
+make test-unit
+
+# Run only integration tests
+make test-integration
+
+# Run only fuzz tests
+make test-fuzz
+
+# Run only invariant tests
+make test-invariant
 
 # Run tests with gas reporting
-forge test --gas-report
+make gas
 
 # Run tests with coverage (core contracts only)
 make coverage
@@ -246,11 +277,11 @@ make coverage
 # Run specific test contract
 forge test --match-contract GLTTokenTest -vvv
 
-# Run integration tests
-forge test --match-contract Integration -vvv
+# Run specific test function
+forge test --match-test test_RegisterValidator -vvv
 
 # Run fuzz tests with more runs
-forge test --match-test testFuzz -vvv --fuzz-runs 1000
+forge test --match-test testFuzz -vvv --fuzz-runs 10000
 ```
 
 ## Deployment

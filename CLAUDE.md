@@ -23,7 +23,19 @@ forge build
 forge compile --sizes  # Show contract sizes
 
 # Run all tests
-forge test
+make test
+
+# Run only unit tests
+make test-unit
+
+# Run only integration tests
+make test-integration
+
+# Run only fuzz tests
+make test-fuzz
+
+# Run only invariant tests
+make test-invariant
 
 # Run specific test contract
 forge test --match-contract <ContractName>Test -vvv
@@ -32,7 +44,7 @@ forge test --match-contract <ContractName>Test -vvv
 forge test --match-test test_FunctionName -vvv
 
 # Run tests with gas reporting
-forge test --gas-report
+make gas
 
 # Run tests with coverage (core contracts only)
 make coverage
