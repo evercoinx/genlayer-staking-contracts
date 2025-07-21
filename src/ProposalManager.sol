@@ -3,16 +3,19 @@ pragma solidity 0.8.28;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { IMockLLMOracle } from "./interfaces/IMockLLMOracle.sol";
 import { IProposalManager } from "./interfaces/IProposalManager.sol";
 import { IValidatorRegistry } from "./interfaces/IValidatorRegistry.sol";
 
 /**
  * @title ProposalManager
- * @dev Manages proposals in the GenLayer consensus system.
- * Handles proposal creation, state transitions, and lifecycle management.
+ * @dev Manages proposals in the GenLayer consensus system with optimized data structures
+ * for O(1) state transitions and efficient proposal tracking.
  */
 contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
+    using EnumerableSet for EnumerableSet.UintSet;
+
     uint256 public constant CHALLENGE_WINDOW_DURATION = 10;
 
     IValidatorRegistry public immutable validatorRegistry;
@@ -21,8 +24,8 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     address public proposalManager;
     uint256 public totalProposals;
     mapping(uint256 proposalId => Proposal) private _proposals;
-    mapping(address proposer => uint256[] proposalIds) private _proposerToProposals;
-    mapping(ProposalState state => uint256[] proposalIds) private _proposalsByState;
+    mapping(address proposer => EnumerableSet.UintSet) private _proposerToProposals;
+    mapping(ProposalState state => EnumerableSet.UintSet) private _proposalsByState;
     mapping(uint256 proposalId => mapping(address validator => bool approved)) private _hasValidatorApproved;
 
     /**
@@ -96,8 +99,8 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
         newProposal.validatorApprovals = 0;
         newProposal.llmValidated = false;
 
-        _proposerToProposals[msg.sender].push(proposalId);
-        _proposalsByState[ProposalState.Proposed].push(proposalId);
+        _proposerToProposals[msg.sender].add(proposalId);
+        _proposalsByState[ProposalState.Proposed].add(proposalId);
 
         emit ProposalCreated(proposalId, msg.sender, contentHash);
 
@@ -210,14 +213,14 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
      * @inheritdoc IProposalManager
      */
     function getProposalsByProposer(address proposer) external view override returns (uint256[] memory) {
-        return _proposerToProposals[proposer];
+        return _proposerToProposals[proposer].values();
     }
 
     /**
      * @inheritdoc IProposalManager
      */
     function getProposalsByState(ProposalState state) external view override returns (uint256[] memory) {
-        return _proposalsByState[state];
+        return _proposalsByState[state].values();
     }
 
     /**
@@ -261,22 +264,13 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Updates the proposal state arrays when state changes.
+     * @dev Updates the proposal state sets when state changes.
      * @param proposalId The ID of the proposal.
      * @param fromState The previous state.
      * @param toState The new state.
      */
     function _updateProposalStateArrays(uint256 proposalId, ProposalState fromState, ProposalState toState) private {
-        uint256[] storage fromArray = _proposalsByState[fromState];
-        uint256 length = fromArray.length;
-        for (uint256 i = 0; i < length; ++i) {
-            if (fromArray[i] == proposalId) {
-                fromArray[i] = fromArray[length - 1];
-                fromArray.pop();
-                break;
-            }
-        }
-
-        _proposalsByState[toState].push(proposalId);
+        _proposalsByState[fromState].remove(proposalId);
+        _proposalsByState[toState].add(proposalId);
     }
 }
