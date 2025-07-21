@@ -213,5 +213,4 @@ interface IDisputeResolver {
      * @return canResolve True if the dispute can be resolved.
      */
     function canResolveDispute(uint256 disputeId) external view returns (bool canResolve);
-
 }

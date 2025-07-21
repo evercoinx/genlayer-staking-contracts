@@ -228,13 +228,11 @@ interface IProposalManager {
      */
     function getProposalsByState(ProposalState state) external view returns (uint256[] memory proposalIds);
 
-
     /**
      * @dev Sets a new proposal manager address. Only callable by owner.
      * @param newProposalManager The address to grant proposal management privileges to.
      */
     function setProposalManager(address newProposalManager) external;
-
 
     /**
      * @dev Checks if a proposal can be challenged.

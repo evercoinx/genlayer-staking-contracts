@@ -31,9 +31,11 @@ jobs:
       - name: Install dependencies
         run: forge install
 
-
       - name: Clean up
         run: make cleanup-localhost
+
+      - name: Check formatting
+        run: forge fmt --check
 
       - name: Compile contracts
         run: make compile

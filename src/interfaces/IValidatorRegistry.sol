@@ -223,7 +223,6 @@ interface IValidatorRegistry {
      */
     function isActiveValidator(address validator) external view returns (bool isActive);
 
-
     /**
      * @dev Registers a new validator with metadata using beacon proxy pattern.
      * @param stakeAmount The amount of GLT tokens to stake.
@@ -280,7 +279,6 @@ interface IValidatorRegistry {
      * @param newLimit The new active validator limit (must be between 1 and MAX_VALIDATORS).
      */
     function setActiveValidatorLimit(uint256 newLimit) external;
-
 
     /**
      * @dev Sets a new slasher address. Only callable by owner.

@@ -189,7 +189,6 @@ interface IConsensusEngine {
         view
         returns (uint256 votesFor, uint256 votesAgainst, uint256 totalValidators);
 
-
     /**
      * @dev Checks if a consensus round can be finalized.
      * @param roundId The consensus round ID.

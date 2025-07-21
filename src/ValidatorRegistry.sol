@@ -259,7 +259,6 @@ contract ValidatorRegistry is IValidatorRegistry, Ownable, ReentrancyGuard {
         return false;
     }
 
-
     /**
      * @inheritdoc IValidatorRegistry
      */

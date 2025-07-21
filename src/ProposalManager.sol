@@ -219,8 +219,6 @@ contract ProposalManager is IProposalManager, Ownable, ReentrancyGuard {
         return proposalsByState[state];
     }
 
-
-
     /**
      * @inheritdoc IProposalManager
      */
